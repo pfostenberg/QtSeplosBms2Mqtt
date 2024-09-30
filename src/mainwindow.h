@@ -10,7 +10,7 @@
 
 
 
-#include "usb2can.h"
+#include "seplos.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -34,19 +34,14 @@ public:
 public slots:
     void doConnect();
     void doDisconnect();
-    void doStartTest();
-    void doStopTest();
     void doTimer();
-    void CanRx(long id,QByteArray data);
-    void CanReady(void);
-    void rpmChanged(const QString &text);
-    void rpmIntChanged(int );
+    void UpdateCell(int no, int value);
+    void UpdateDouble(int no, double value);
 
 private:
     Ui::MainWindow *ui;
-    QRandomGenerator m_Rnd;
 
-    Usb2Can                m_Can2Usb;
+    Seplos                m_Seplos;
     QList<QSerialPortInfo> m_Ports;
 
     QTimer *m_Timer;
@@ -55,20 +50,9 @@ private:
     QString m_CsvData;
     int     m_CsvTimeout;
 
-
     int counter;
-    int m_DriveMode;
-    int m_DriveRpm;      // *250 4=1000  60=15k
-
     int m_RndAn;
     int m_RndAus;
-
-
     int m_MaxCnt;
-
-
-
-
-
 };
 #endif // MAINWINDOW_H

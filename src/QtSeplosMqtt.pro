@@ -13,8 +13,6 @@ CONFIG +=  console
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
 
-# low RPM and 30 min test.
-# DEFINES += LONG_TERM
 
 # You can also make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -25,12 +23,12 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     setting.cpp \
-    usb2can.cpp
+    seplos.cpp
 
 HEADERS += \
     mainwindow.h \
     setting.h \
-    usb2can.h
+    seplos.h
 
 FORMS += \
     mainwindow.ui

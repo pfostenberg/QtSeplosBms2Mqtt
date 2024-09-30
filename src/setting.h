@@ -11,11 +11,12 @@ public:
     setting();
     QString getPort();
     QString getMqttPrefix();
+    QString getMqttHost();
     uint32_t getStartNo();
     uint32_t getEndNo();
     uint32_t getAutoStartDelayMs();
     uint32_t getWaitTimeMs();
-
+    uint32_t getMqttPort();
 private:
     uint32_t m_StartNo;
     uint32_t m_EndNo;

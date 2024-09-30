@@ -1,5 +1,5 @@
-#ifndef USB2CAN_H
-#define USB2CAN_H
+#ifndef SEPLOS_H
+#define SEPLOS_H
 
 #include <QObject>
 #include <QSerialPort>
@@ -8,17 +8,19 @@
 #include <QTimer>
 #include <QMqttClient>
 
-class Usb2Can : public QObject
+class Seplos : public QObject
 {
     Q_OBJECT
 public:
-    explicit Usb2Can(QObject *parent = nullptr);
+    explicit Seplos(QObject *parent = nullptr);
     bool doConnect(QSerialPortInfo spi);
     void close();
     void doTx(QByteArray data);
     void modbusBuildCrcAndCrThenSend(QString data);
     QString ts(void);
-
+signals:
+    void UpdateCell(int no, int value);
+    void UpdateDouble(int no, double value);
 
 public slots:
     void rsReadFunction();
@@ -27,8 +29,7 @@ public slots:
     void updateLogStateChange();
 
 signals:
-    void CanRx(long id,QByteArray data);
-    void CanReady();
+
 
 private:
     void oneLineRx(QString);
@@ -42,4 +43,4 @@ private:
 
 };
 
-#endif // USB2CAN_H
+#endif // SEPLOS_H

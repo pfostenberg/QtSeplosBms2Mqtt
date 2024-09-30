@@ -35,6 +35,17 @@ QString setting::getMqttPrefix()
     return m_MqttPrefix;
 }
 
+QString setting::getMqttHost()
+{
+    return m_MqttHost;
+}
+
+uint32_t setting::getMqttPort()
+{
+    return m_MqttPort;
+}
+
+
 uint32_t setting::getStartNo()
 {
     return m_StartNo;

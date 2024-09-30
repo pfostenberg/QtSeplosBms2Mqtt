@@ -1,20 +1,16 @@
-#include "usb2can.h"
+#include "seplos.h"
 
 #include <QDebug>
 #include <QDateTime>
-/*
-t10021133[CR]
-Sends an 11bit CAN frame with ID=0x100, 2 bytes
-with the value 0x11 and 0x33.
-*/
-Usb2Can::Usb2Can(QObject *parent) : QObject(parent)
+
+Seplos::Seplos(QObject *parent) : QObject(parent)
 {
    connect(&m_Rs232,          SIGNAL(readyRead()), this, SLOT(rsReadFunction()));   
    connect(&m_Timer,          SIGNAL(timeout()),   this, SLOT(doTimer()) );
    m_TimerState = 0;
 }
 
-void Usb2Can::updateLogStateChange()
+void Seplos::updateLogStateChange()
 {
     const QString content = QDateTime::currentDateTime().toString()
                             + QLatin1String(": State Change")
@@ -26,7 +22,7 @@ void Usb2Can::updateLogStateChange()
 }
 
 
-bool Usb2Can::doConnect(QSerialPortInfo spi)
+bool Seplos::doConnect(QSerialPortInfo spi)
 {
 
   //  m_MqttClient->setHostname(ui->lineEditHost->text());
@@ -59,8 +55,8 @@ bool Usb2Can::doConnect(QSerialPortInfo spi)
         // mqtt.0.BMS1.total_voltage
 
 
-    connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Usb2Can::updateLogStateChange);
-  //  connect(m_MqttClient, &QMqttClient::disconnected, this, &Usb2Can::brokerDisconnected);
+    connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Seplos::updateLogStateChange);
+  //  connect(m_MqttClient, &QMqttClient::disconnected, this, &Seplos::brokerDisconnected);
 
     connect(&m_MqttClient, &QMqttClient::messageReceived, this, [this](const QByteArray &message, const QMqttTopicName &topic) {
         const QString content = QDateTime::currentDateTime().toString()
@@ -101,7 +97,7 @@ bool Usb2Can::doConnect(QSerialPortInfo spi)
     }
 }
 
-void Usb2Can::close()
+void Seplos::close()
 {
     //oneLineRx("t73780000320200300027\r");
     //return false;
@@ -109,7 +105,7 @@ void Usb2Can::close()
     m_Rs232.close();
 }
 
-void Usb2Can::doTx(QByteArray data)
+void Seplos::doTx(QByteArray data)
 {
     if (data.at(0)!='t') {
         qDebug() << ts() << "TX: " << data;
@@ -118,7 +114,7 @@ void Usb2Can::doTx(QByteArray data)
 }
 
 
-void Usb2Can::rsReadFunction()
+void Seplos::rsReadFunction()
 {
 
     QByteArray arrivedMsg = m_Rs232.readAll();
@@ -171,7 +167,7 @@ uint16_t ModRTU_CRC(char *buf, int len)
 }
 
 
-void Usb2Can::processRx(void)
+void Seplos::processRx(void)
 {
 
     bool more = true;
@@ -411,7 +407,7 @@ uint32_t getUintFromString(QString &str, int &start,int len ) {
     return data;
 }
 
-void Usb2Can::processProV20(QString line)
+void Seplos::processProV20(QString line)
 {
     // ~200146001096000110
     int start = 3;
@@ -434,7 +430,8 @@ void Usb2Can::processProV20(QString line)
     for (int bno = 0; bno < banz; bno++)
     {
         int miliVolt = getUintFromString(line,start,4);
-        qDebug() << ts() << "Cell: " << bno << " mv: " << miliVolt;
+        UpdateCell(bno, miliVolt);
+        //qDebug() << ts() << "Cell: " << bno << " mv: " << miliVolt;
     }
     int tanz = getUintFromString(line,start,2);
     qDebug() << ts() << "temp anz: " << tanz;
@@ -442,29 +439,39 @@ void Usb2Can::processProV20(QString line)
     {
         int zentelGrad = getUintFromString(line,start,4);
         double grad = zentelGrad * 0.01f;
+        UpdateDouble(tno, grad);
         qDebug() << ts() << "Temp: " << tno << " grad: " << grad;
     }
 
     //7      Charge/discharge current (0.01A)      2
     double tcurr =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(7, tcurr);
     //8      Total battery voltage (0.01V)      2
     double tbatt =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(8, tbatt);
     //9      Residual capacity (0.01Ah)      2
     double ahmax =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(9, ahmax);
     //10      Custom number P=10    1
     double cno1 =  getUintFromString(line,start,2);
     //11    Battery capacity (0.01Ah)    2
     double ahact =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(11, ahact);
     //12    SOC (1‰ )    2
     double    soc =  getUintFromString(line,start,4) * 0.1f;
+    UpdateDouble(12, soc);
     //13    Rated capacity (0.01Ah)    2
     double    rcap =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(13, rcap);
     //14    Number of cycles    2
     double    cycle =  getUintFromString(line,start,4);
+    UpdateDouble(14, cycle);
     //15    SOH (1‰ )    2
     double    soh =  getUintFromString(line,start,4) * 0.1f;
+    UpdateDouble(15, soh);
     //16    Port voltage (0.01V)    2
     double    pvolt =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(16, pvolt);
     //17    Reservation    2
     //18    Reservation    2
     //19    Reservation    2
@@ -498,7 +505,7 @@ void Usb2Can::processProV20(QString line)
 
     */
 
-void Usb2Can::oneLineRx(QString line)
+void Seplos::oneLineRx(QString line)
 {
     if (line.size() == 0)
     {
@@ -522,12 +529,12 @@ void Usb2Can::oneLineRx(QString line)
 
 }
 
-QString Usb2Can::ts(void)
+QString Seplos::ts(void)
 {
     return QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss,zzz");
 }
 
-void Usb2Can::modbusBuildCrcAndCrThenSend(QString hex)
+void Seplos::modbusBuildCrcAndCrThenSend(QString hex)
 {
     // sample
     //QString MyHexString1 ="000410000012";
@@ -558,21 +565,13 @@ void Usb2Can::modbusBuildCrcAndCrThenSend(QString hex)
 }
 
 
-void Usb2Can::doTimer()
+void Seplos::doTimer()
 {
     m_TimerState++;
     qDebug() << ts() << "m_TimerState: " << m_TimerState;
 
     switch(m_TimerState)
     {
-
-
-
-//    pi@raspberrypi:~/pi_mpp/bms $ ./query_seplos_ha.sh 4201 /dev/ttyUSB_bms 19200 01
-// Sending "~20014642E00201FD35\r"
-// pi@raspberrypi:~/pi_mpp/bms $ ./query_seplos_ha.sh 4201 /dev/ttyUSB_bms 19200 02
-// Sending "~20024642E00201FD34\r"
-
 
 
 
