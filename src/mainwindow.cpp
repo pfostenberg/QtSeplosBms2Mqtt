@@ -195,7 +195,7 @@ void MainWindow::UpdateDouble(int no, double value)
 
 void MainWindow::UpdateCell(int no, int value)
 {
-    qDebug() << "UpdateCell:" << no << " mV " << value;
+//    qDebug() << "UpdateCell:" << no << " mV " << value;
     QLabel *label;
     switch(no) {
     case  1: label = ui->l_C01; break;

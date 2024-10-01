@@ -34,6 +34,7 @@ signals:
 private:
     void oneLineRx(QString);
     void processProV20(QString);
+    bool sendMqttPublish(int adr,int no, int subno, double value, int dezimals);
 
     QSerialPort            m_Rs232;
     QByteArray             m_RxData;

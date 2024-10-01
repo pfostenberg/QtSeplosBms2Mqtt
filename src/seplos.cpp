@@ -2,6 +2,8 @@
 
 #include <QDebug>
 #include <QDateTime>
+#include "setting.h"
+
 
 Seplos::Seplos(QObject *parent) : QObject(parent)
 {
@@ -21,6 +23,72 @@ void Seplos::updateLogStateChange()
     //ui->editLog->insertPlainText(content);
 }
 
+static const char* const MqttNames[] = {
+    "cell",              // 0
+    "temp",              // 1
+    "env_temp",          // 2
+    "power_temp",        // 3
+    "_4_",               // 4
+    "_5_",               // 5
+    "_6_",               // 6
+    "charge_discharge",  // 7
+    "total_voltage",     // 8
+    "amp_hours1",        // 9
+    "_10_",              // 10
+    "residual_capacity", // 11 ahact
+    "soc",               // 12
+    "amp_hours1",        // 13
+    "cycles",            // 14
+    "soh",               // 15
+    "port_voltage",            // 16
+    "void"
+};
+
+
+bool Seplos::sendMqttPublish(int adr, int no, int subno, double value, int dezimals)
+{
+    QString prefix = settingProvider()->getMqttPrefix();
+    //mqtt.0.BMS1.cell16
+    //mqtt.0.BMS1.cell_temp4
+    //mqtt.0.BMS1.amp_hours1
+    //mqtt.0.BMS1.charge_discharge
+    //mqtt.0.BMS1.cycles
+    // mqtt.0.BMS1.diff_mv
+    //mqtt.0.BMS1.env_temp
+    // mqtt.0.BMS1.high_cell
+    // mqtt.0.BMS1.high_mv
+    // mqtt.0.BMS1.low_cell
+    // mqtt.0.BMS1.low_mv
+    //mqtt.0.BMS1.port_voltage
+    // mqtt.0.BMS1.power
+    //mqtt.0.BMS1.power_temp
+    //mqtt.0.BMS1.residual_capacity
+    // mqtt.0.BMS1.soh
+    //mqtt.0.BMS1.total_voltage
+
+    const char * itemname = "xxxx";
+    if (no <= 16) {
+        itemname = MqttNames[no];
+    }
+    char buffer[256];
+    if (subno < 1) {
+        sprintf(buffer,"%s%d/%s",prefix.toLocal8Bit().constData(),adr,itemname);
+    } else {
+        sprintf(buffer,"%s%d/%s%02d",prefix.toLocal8Bit().constData(),adr,itemname,subno);
+    }
+    QString topic(buffer);
+
+    char message[255];
+    char fmt[30];
+    // %3.2g
+    sprintf(fmt,"%%5.%df",dezimals);
+    sprintf(message,fmt,value);
+    QByteArray bAmessage(message);
+
+    qint32 x2 =  m_MqttClient.publish(topic,message);
+    qDebug() << ts() << "publish" << topic << message << x2;
+    return x2;
+}
 
 bool Seplos::doConnect(QSerialPortInfo spi)
 {
@@ -34,25 +102,6 @@ bool Seplos::doConnect(QSerialPortInfo spi)
 
     m_MqttClient.connectToHost();
 
-    // mqtt.0.BMS1.amp_hours1
-    // mqtt.0.BMS1.cell16
-    // mqtt.0.BMS1.cell_temp4
-    // mqtt.0.BMS1.charge_discharge
-    // mqtt.0.BMS1.cycles
-    // mqtt.0.BMS1.cycles
-    // mqtt.0.BMS1.diff_mv
-    // mqtt.0.BMS1.env_temp
-    // mqtt.0.BMS1.high_cell
-    // mqtt.0.BMS1.high_mv
-    // mqtt.0.BMS1.low_cell
-    // mqtt.0.BMS1.low_mv
-    // mqtt.0.BMS1.port_voltage
-    // mqtt.0.BMS1.power
-    // mqtt.0.BMS1.power_temp
-    // mqtt.0.BMS1.residual_capacity
-    // mqtt.0.BMS1.residual_capacity
-    //mqtt.0.BMS1.soh
-        // mqtt.0.BMS1.total_voltage
 
 
     connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Seplos::updateLogStateChange);
@@ -431,6 +480,9 @@ void Seplos::processProV20(QString line)
     {
         int miliVolt = getUintFromString(line,start,4);
         UpdateCell(bno, miliVolt);
+        double dmv = miliVolt;
+        sendMqttPublish(addr, 0, bno +1, dmv, 0);
+
         //qDebug() << ts() << "Cell: " << bno << " mv: " << miliVolt;
     }
     int tanz = getUintFromString(line,start,2);
@@ -440,38 +492,59 @@ void Seplos::processProV20(QString line)
         int zentelGrad = getUintFromString(line,start,4);
         double grad = zentelGrad * 0.01f;
         UpdateDouble(tno, grad);
-        qDebug() << ts() << "Temp: " << tno << " grad: " << grad;
+        //qDebug() << ts() << "Temp: " << tno << " grad: " << grad;
+        switch(tno)
+        {
+        case 0: sendMqttPublish(addr, 1, 1, grad, 1); break;
+        case 1: sendMqttPublish(addr, 1, 2, grad, 1); break;
+        case 2: sendMqttPublish(addr, 1, 3, grad, 1); break;
+        case 3: sendMqttPublish(addr, 1, 4, grad, 1); break;
+
+        case 4: sendMqttPublish(addr, 2, 0, grad, 1); break;
+        case 5: sendMqttPublish(addr, 3, 0, grad, 1); break;
+
+
+        }
     }
 
     //7      Charge/discharge current (0.01A)      2
-    double tcurr =  getUintFromString(line,start,4) * 0.01f;
+    double tcurr =  getUintFromString(line,start,4) * 0.00001f;
     UpdateDouble(7, tcurr);
+    sendMqttPublish(addr, 7, 0, tcurr, 1);
     //8      Total battery voltage (0.01V)      2
     double tbatt =  getUintFromString(line,start,4) * 0.01f;
     UpdateDouble(8, tbatt);
+    sendMqttPublish(addr, 8, 0, tbatt, 1);
     //9      Residual capacity (0.01Ah)      2
-    double ahmax =  getUintFromString(line,start,4) * 0.01f;
-    UpdateDouble(9, ahmax);
+    double ahact =  getUintFromString(line,start,4) * 0.01f;
+    sendMqttPublish(addr, 9, 0, ahact, 0);
+    UpdateDouble(9, ahact);
     //10      Custom number P=10    1
     double cno1 =  getUintFromString(line,start,2);
     //11    Battery capacity (0.01Ah)    2
-    double ahact =  getUintFromString(line,start,4) * 0.01f;
-    UpdateDouble(11, ahact);
+    double ahmax =  getUintFromString(line,start,4) * 0.01f;
+    UpdateDouble(11, ahmax);
+    sendMqttPublish(addr, 11, 0, ahmax, 0);
     //12    SOC (1‰ )    2
     double    soc =  getUintFromString(line,start,4) * 0.1f;
+    sendMqttPublish(addr, 12, 0, soc, 0);
     UpdateDouble(12, soc);
     //13    Rated capacity (0.01Ah)    2
     double    rcap =  getUintFromString(line,start,4) * 0.01f;
     UpdateDouble(13, rcap);
+    sendMqttPublish(addr, 13, 0, rcap, 0);
     //14    Number of cycles    2
     double    cycle =  getUintFromString(line,start,4);
     UpdateDouble(14, cycle);
+    sendMqttPublish(addr, 14, 0, cycle, 0);
     //15    SOH (1‰ )    2
     double    soh =  getUintFromString(line,start,4) * 0.1f;
     UpdateDouble(15, soh);
+    sendMqttPublish(addr, 15, 0, soh, 0);
     //16    Port voltage (0.01V)    2
     double    pvolt =  getUintFromString(line,start,4) * 0.01f;
     UpdateDouble(16, pvolt);
+    sendMqttPublish(addr, 16, 0, pvolt, 0);
     //17    Reservation    2
     //18    Reservation    2
     //19    Reservation    2
@@ -585,8 +658,6 @@ void Seplos::doTimer()
 
         //              quint8 qos = 0, bool retain = false);
 
-        qint32 x2 =  m_MqttClient.publish(topic,message);
-        qDebug() << ts() << "XXXXXXXXX" << " 2 " << x2;
 
 
 
