@@ -434,7 +434,7 @@ void Seplos::processProV20(QString line)
         }
         emit UpdateCell(bno, milliVolt);
         double dv = milliVolt * 0.001f;
-        sendMqttPublish(addr, 0, bno +1, dv, 0);
+        sendMqttPublish(addr, 0, bno +1, dv, 4);
 
         //qDebug() << ts() << "Cell: " << bno << " mv: " << miliVolt;
     }
