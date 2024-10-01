@@ -10,3 +10,18 @@ with there app i can run this on the PI on VNC.
 see the values and the send to mqtt server with following grafana system.
 
 The system config ist ini based 
+
+
+# compile on PI 
+
+sudo apt-get install  qtbase5-dev  qt5-qmake qtbase5-dev-tools libqt5serialport5 libqt5serialport5-dev qtbase5-private-dev
+
+install qtmqtt ( on my side 5.15.1)
+
+http://www.diy.ind.in/linux/31-install-mqtt-module-in-qt
+
+git clone --branch v5.15.1 git://code.qt.io/qt/qtmqtt.git
+
+cd qtmqtt
+qmake qtmqtt
+make

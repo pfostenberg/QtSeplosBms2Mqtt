@@ -16,7 +16,7 @@ setting::setting()
     m_StartNo      = 1;
     m_EndNo        = 2;
     m_AutoStartDelayMs = 2000;  // 2 sec
-    m_WaitTimeMs = 30000;       // 30 sec.
+    m_WaitTimeMs = 10000;       // 30 sec.
     m_MqttPrefix   = "BMS";
     m_MqttHost     = "192.168.6.128";
     m_MqttPort     = 1883;

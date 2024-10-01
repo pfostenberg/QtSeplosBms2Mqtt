@@ -10,22 +10,28 @@ Seplos::Seplos(QObject *parent) : QObject(parent)
    connect(&m_Rs232,          SIGNAL(readyRead()), this, SLOT(rsReadFunction()));   
    connect(&m_Timer,          SIGNAL(timeout()),   this, SLOT(doTimer()) );
    m_TimerState = 0;
+   m_ActAdr = 0;
 }
 
 void Seplos::updateLogStateChange()
 {
+    int mqttState = m_MqttClient.state();
     const QString content = QDateTime::currentDateTime().toString()
                             + QLatin1String(": State Change")
-                            + QString::number(m_MqttClient.state())
+                            + QString::number(mqttState)
                             + QLatin1Char('\n');
     qDebug() << ts() << "updateLogStateChange" << content;
+
+    emit UpdateCell(42, mqttState);
+
+
 
     //ui->editLog->insertPlainText(content);
 }
 
 static const char* const MqttNames[] = {
     "cell",              // 0
-    "temp",              // 1
+    "cell_temp",         // 1
     "env_temp",          // 2
     "power_temp",        // 3
     "_4_",               // 4
@@ -41,6 +47,12 @@ static const char* const MqttNames[] = {
     "cycles",            // 14
     "soh",               // 15
     "port_voltage",            // 16
+    "power",             // 17
+    "diff_mv",           // 18
+    "low_mv",
+    "high_mv",
+    "low_cell",
+    "high_cell",
     "void"
 };
 
@@ -53,28 +65,32 @@ bool Seplos::sendMqttPublish(int adr, int no, int subno, double value, int dezim
     //mqtt.0.BMS1.amp_hours1
     //mqtt.0.BMS1.charge_discharge
     //mqtt.0.BMS1.cycles
-    // mqtt.0.BMS1.diff_mv
+    //mqtt.0.BMS1.diff_mv
     //mqtt.0.BMS1.env_temp
-    // mqtt.0.BMS1.high_cell
-    // mqtt.0.BMS1.high_mv
-    // mqtt.0.BMS1.low_cell
-    // mqtt.0.BMS1.low_mv
+    //mqtt.0.BMS1.high_cell
+    //mqtt.0.BMS1.high_mv
+    //mqtt.0.BMS1.low_cell
+    //mqtt.0.BMS1.low_mv
     //mqtt.0.BMS1.port_voltage
-    // mqtt.0.BMS1.power
+    //mqtt.0.BMS1.power
     //mqtt.0.BMS1.power_temp
     //mqtt.0.BMS1.residual_capacity
-    // mqtt.0.BMS1.soh
+    //mqtt.0.BMS1.soh
     //mqtt.0.BMS1.total_voltage
 
     const char * itemname = "xxxx";
-    if (no <= 16) {
+    if (no <= 22) {
         itemname = MqttNames[no];
     }
     char buffer[256];
     if (subno < 1) {
         sprintf(buffer,"%s%d/%s",prefix.toLocal8Bit().constData(),adr,itemname);
     } else {
-        sprintf(buffer,"%s%d/%s%02d",prefix.toLocal8Bit().constData(),adr,itemname,subno);
+        if (no==1) {
+            sprintf(buffer,"%s%d/%s%01d",prefix.toLocal8Bit().constData(),adr,itemname,subno);
+        } else {
+            sprintf(buffer,"%s%d/%s%02d",prefix.toLocal8Bit().constData(),adr,itemname,subno);
+        }
     }
     QString topic(buffer);
 
@@ -103,7 +119,8 @@ bool Seplos::doConnect(QSerialPortInfo spi)
     m_MqttClient.connectToHost();
 
 
-
+    m_ActAdr = settingProvider()->getStartNo();
+    m_TimerState = settingProvider()->getEndNo()-10;  // send when connected
     connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Seplos::updateLogStateChange);
   //  connect(m_MqttClient, &QMqttClient::disconnected, this, &Seplos::brokerDisconnected);
 
@@ -363,87 +380,6 @@ min len 16
 
 
         }
-/*
- *         // check ~20014644E00201FD33$ search
-        int indexSOF = m_RxData.indexOf('~');
-        int indexEOF = m_RxData.indexOf('$');
-        int indexNL = m_RxData.indexOf('\r');
-        qDebug() << ts() << "\t V2\tsof=" << indexSOF  << "\tEOF\t" << indexEOF <<  "\tNL\t" << indexNL ;
-        //  V2	sof= 23 	EOF	 42 	NL	 43
-
-        //if ( (indexNL>0) && (indexEOF == (indexNL-1) ) && (indexSOF>=0)  )
-        if (indexSOF>=0)
-        {
-            // we start after SOF
-
-            if ( (indexNL>0) && (indexNL == (indexSOF-1) )) {
-                // CR + SOF
-                QByteArray left = m_RxData.mid(0,indexNL);
-                oneLineRx(left);
-                QByteArray rest = m_RxData.mid(indexSOF+1);
-                m_RxData = rest;
-                qDebug() << "m_RxData(NL+): " << m_RxData.toHex();
-            } else {
-                QByteArray rest = m_RxData.mid(indexSOF+1);
-                m_RxData = rest;
-                qDebug() << "m_RxData(SOF): " << m_RxData.toHex() + " ASC: "+ m_RxData;
-            }
-        } else {
-            if ( (indexNL>0) && (indexEOF == (indexNL-1) ) )
-            {
-                // EOF + newline
-                int xlen = indexEOF - indexNL -1;
-                QByteArray line = m_RxData.mid(indexNL+1,xlen);
-                QByteArray rest = m_RxData.mid(indexNL+1);
-                oneLineRx(line);
-
-                m_RxData = rest;
-                qDebug() << "m_RxData/EOF: " << m_RxData.toHex();
-
-            } else {
-                if ( (indexNL>0) && (indexSOF>=0)  )
-                {
-                    // NL + SOF ... das weg schneiden.
-                    QByteArray left = m_RxData.mid(0,indexNL-1);
-                    QByteArray right = m_RxData.mid(indexSOF+1);
-
-                    m_RxData = left;
-                    m_RxData.append(right);
-                    qDebug() << "m_RxData/CUT: " << m_RxData.toHex();
-
-
-                } else {
-                    more = false;
-                }
-            }
-        }
-
-        */
-        /*
-        if ( (indexNL>0) && (indexEOF == (indexNL-1) ) && (indexSOF>=0)  )
-        {
-            int xlen = indexEOF - indexNL -1;
-
-
-            QByteArray line = m_RxData.mid(indexNL+1,xlen);
-            QByteArray rest = m_RxData.mid(indexNL+1);
-
-            //qDebug() << ts() << "\tcount\t" << counter  << "\tact\t" << duration ;
-
-            oneLineRx(line);
-
-            m_RxData = rest;
-            qDebug() << "m_RxData/JUNK: " << m_RxData.toHex();
-
-        } else {
-          more = false;
-        }
-        */
-        // more = false;
-
-        // 7E fängt an.
-        // 240d -> eine fertig.
-        // nur 0d stop.... bis 7E
 
     }
 }
@@ -474,24 +410,44 @@ void Seplos::processProV20(QString line)
         return;
     }
     qDebug() << ts() << "XX: " << addr << " " << func << " " << code << " " << banz;
+
+    int minVolt = 10000;
+    int maxVolt = 0;
+    int minNo = 0;
+    int maxNo = 0;
+    int maxDx = 0;
+
     //"2024.09.29 23:34:01,748" XX:  1   70   66   224
     // "2024.09.29 23:34:01,886" XX:  1   70   0   16
     for (int bno = 0; bno < banz; bno++)
     {
-        int miliVolt = getUintFromString(line,start,4);
-        UpdateCell(bno, miliVolt);
-        double dmv = miliVolt;
-        sendMqttPublish(addr, 0, bno +1, dmv, 0);
+        int milliVolt = getUintFromString(line,start,4);
+        if ((milliVolt) > maxVolt ) {
+            maxVolt = milliVolt;
+            maxNo = bno +1;
+            qDebug() << ts() << "maxVolt: " << maxVolt << maxNo;
+        }
+        if ((milliVolt) < minVolt ) {
+            minVolt = milliVolt;
+            minNo = bno +1;
+            qDebug() << ts() << "minVolt: " << minVolt << minNo;
+        }
+        emit UpdateCell(bno, milliVolt);
+        double dv = milliVolt * 0.001f;
+        sendMqttPublish(addr, 0, bno +1, dv, 0);
 
         //qDebug() << ts() << "Cell: " << bno << " mv: " << miliVolt;
     }
+
+    maxDx = maxVolt - minVolt;
+
     int tanz = getUintFromString(line,start,2);
     qDebug() << ts() << "temp anz: " << tanz;
     for (int tno = 0; tno < tanz; tno++)
     {
         int zentelGrad = getUintFromString(line,start,4);
         double grad = zentelGrad * 0.01f;
-        UpdateDouble(tno, grad);
+        emit UpdateDouble(tno, grad);
         //qDebug() << ts() << "Temp: " << tno << " grad: " << grad;
         switch(tno)
         {
@@ -508,50 +464,72 @@ void Seplos::processProV20(QString line)
     }
 
     //7      Charge/discharge current (0.01A)      2
-    double tcurr =  getUintFromString(line,start,4) * 0.00001f;
-    UpdateDouble(7, tcurr);
-    sendMqttPublish(addr, 7, 0, tcurr, 1);
+    uint32_t ucur = getUintFromString(line,start,4);
+    int32_t  scur = 0;
+    if (ucur > 32767) {
+        uint32_t inv = ucur ^  0xffff;  // 65535 -> 1
+        scur = inv * -1;
+    } else {
+        scur = ucur;
+    }
+
+    double tcurr = scur * 0.01f;
+    emit UpdateDouble(7, tcurr);
+    sendMqttPublish(addr, 7, 0, tcurr, 3);
     //8      Total battery voltage (0.01V)      2
     double tbatt =  getUintFromString(line,start,4) * 0.01f;
-    UpdateDouble(8, tbatt);
+    emit UpdateDouble(8, tbatt);
     sendMqttPublish(addr, 8, 0, tbatt, 1);
     //9      Residual capacity (0.01Ah)      2
     double ahact =  getUintFromString(line,start,4) * 0.01f;
     sendMqttPublish(addr, 9, 0, ahact, 0);
-    UpdateDouble(9, ahact);
+    emit UpdateDouble(9, ahact);
     //10      Custom number P=10    1
     double cno1 =  getUintFromString(line,start,2);
     //11    Battery capacity (0.01Ah)    2
     double ahmax =  getUintFromString(line,start,4) * 0.01f;
-    UpdateDouble(11, ahmax);
+    emit UpdateDouble(11, ahmax);
     sendMqttPublish(addr, 11, 0, ahmax, 0);
     //12    SOC (1‰ )    2
     double    soc =  getUintFromString(line,start,4) * 0.1f;
     sendMqttPublish(addr, 12, 0, soc, 0);
-    UpdateDouble(12, soc);
+    emit UpdateDouble(12, soc);
     //13    Rated capacity (0.01Ah)    2
     double    rcap =  getUintFromString(line,start,4) * 0.01f;
-    UpdateDouble(13, rcap);
+    emit UpdateDouble(13, rcap);
     sendMqttPublish(addr, 13, 0, rcap, 0);
     //14    Number of cycles    2
     double    cycle =  getUintFromString(line,start,4);
-    UpdateDouble(14, cycle);
+    emit UpdateDouble(14, cycle);
     sendMqttPublish(addr, 14, 0, cycle, 0);
     //15    SOH (1‰ )    2
     double    soh =  getUintFromString(line,start,4) * 0.1f;
-    UpdateDouble(15, soh);
+    emit UpdateDouble(15, soh);
     sendMqttPublish(addr, 15, 0, soh, 0);
     //16    Port voltage (0.01V)    2
     double    pvolt =  getUintFromString(line,start,4) * 0.01f;
-    UpdateDouble(16, pvolt);
-    sendMqttPublish(addr, 16, 0, pvolt, 0);
+    emit UpdateDouble(16, pvolt);
+    sendMqttPublish(addr, 16, 0, pvolt, 1);
     //17    Reservation    2
     //18    Reservation    2
     //19    Reservation    2
     //20    Reservation    2
-    qDebug() << ts() << "7-12\t" << tcurr << "\t" << tbatt << "\t" << ahmax << "\t" << ahact << "\t" << soc ;
-    qDebug() << ts() << "13 "<< rcap << "\t" << cycle << "\t" << soh  << "\t" << pvolt;
+    //qDebug() << ts() << "7-12\t" << tcurr << "\t" << tbatt << "\t" << ahmax << "\t" << ahact << "\t" << soc ;
+    //qDebug() << ts() << "13 "<< rcap << "\t" << cycle << "\t" << soh  << "\t" << pvolt;
 
+
+    //17 power W
+    double power = tbatt * tcurr;
+    sendMqttPublish(addr, 17, 0, power, 0);
+
+    //18 dx
+
+    sendMqttPublish(addr, 18, 0, maxDx, 0);
+
+    sendMqttPublish(addr, 19, 0, minVolt, 0);
+    sendMqttPublish(addr, 20, 0, maxVolt, 0);
+    sendMqttPublish(addr, 21, 0, minNo, 0);
+    sendMqttPublish(addr, 22, 0, maxNo, 0);
 }
 
 /*
@@ -637,114 +615,50 @@ void Seplos::modbusBuildCrcAndCrThenSend(QString hex)
      m_Rs232.write(cmd1);
 }
 
+void Seplos::pollTelemetrie(int adr)
+{
+    qDebug() << ts() << "pollTelemetrie: " << adr;
 
+    emit UpdateCell(43,adr); // update status line
+    // "~20014642E00201FD35\r"
+    // set number and calculate CRC
+    char buffer[255];
+    char xbuffx[255];
+    sprintf(buffer,"20%02d4642E00201",adr);
+
+
+    int tlen = strlen(buffer);
+    uint16_t tcrc = Seplos_CRC(buffer, tlen);
+    qDebug() << ts() << Qt::hex << "tcrc: " << tcrc;
+
+    sprintf(xbuffx,"~%s%04X\r",buffer,tcrc);
+    doTx(xbuffx);  // read telemetrie
+}
+
+
+// all 100ms
 void Seplos::doTimer()
 {
     m_TimerState++;
-    qDebug() << ts() << "m_TimerState: " << m_TimerState;
+    //qDebug() << ts() << "m_TimerState: " << m_TimerState;
 
-    switch(m_TimerState)
-    {
+    setting* s = settingProvider();
 
+    uint32_t start = s->getStartNo();
+    uint32_t end = s->getEndNo();
+    uint32_t ms = s->getWaitTimeMs();
+    uint32_t ticks = ms/100;
 
+    if (m_TimerState >= ticks) {
+        m_TimerState = 0;
 
+        // next adr
+        m_ActAdr++;
+        if (m_ActAdr > end) {
+            m_ActAdr = start;
+        }
 
-    case 10:
-
-
-
-        QMqttTopicName topic("seplos/mytest");
-        QByteArray message ("info2");
-
-        //              quint8 qos = 0, bool retain = false);
-
-
-
-
-        doTx("~20014642E00201FD35\r");  // read telemetrie
-        //doTx("~2001464F0000FD99$\r");  // read telemetrie
-        break;
-/*
-    case 15:
-        doTx("~200146510000FDAD$\r");  // read telemetrie
-        break;
-
-    case 20:
-        doTx("~20014642E00201FD35\r");  // read telemetrie
-        break;
-
-    case 25:
-        doTx("~20014644E00201FD33$\r");  // read telemetrie
-        break;
-
-    case 30:
-        doTx("~20014642E00201FD35$\r");  // read telemetrie
-        break;
-
-    case 44:
-    {
-
-//        QString MyHexString1 ="000410000012";
-
-
-//        QString MyHexString1 ="000410000001";
-//        modbusBuildCrcAndCrThenSend(MyHexString1);
-
-
-        //QString MyHexString ="00041000001275160d";
-        //QByteArray cmd = QByteArray::fromHex(MyHexString.toUtf8());
-        //doTx(cmd);  // version
-
-        doTx("~20014644E00201FD33$\r");  // read telemetrie
-
+        pollTelemetrie(m_ActAdr);
     }
-        break;
-
-
-
-
-
-    case 4:
-        doTx("~2001464F0000FD99$\r");  // version
-        break;
-
-    case 6:
-        doTx("~2001464F0000FD99$\r");  // version
-        break;
-
-    case 8:
-        doTx("~20014644E00201FD33$\r");  // read telemetrie
-        break;
-
-
-    case 10:
-        doTx("~20014642E00201FD35$\r");  // Close in case of restart
-        break;
-
-    case 6:
-        doTx("S6\r");  // 500kbits
-        break;
-
-    case 7:
-        doTx("M0000E000\r");  // MASK
-        break;
-
-    case 8:
-        doTx("m00001FF0\r");  // MASK
-        break;
-
-    case 9:
-        doTx("O\r");  // open
-        break;
-
-    case 10:
-        doTx("F\r");  // Flag
-        break;
-    case 11:
-        m_Timer.stop();
-        CanReady();
-        break;
-*/
-   }
 }
 

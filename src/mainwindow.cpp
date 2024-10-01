@@ -65,7 +65,7 @@ void MainWindow::RsSend(QByteArray data)
 
 void MainWindow::doStatusMsg(const char *msg)
 {
-    qDebug() << msg;
+    qDebug() << "doStatusMsg: " <<msg;
     ui->l_StatusLine->setText(msg);
 }
 
@@ -109,7 +109,7 @@ void MainWindow::doConnect(void)
     bool open = m_Seplos.doConnect(spi);
 
     if (open) {
-        doStatusMsg("Connected");
+        doStatusMsg("Connected!");
         m_StateCount = 0;
         qDebug() << m_Seplos.ts()  << "start timer";
         guiConnected(true);
@@ -141,7 +141,7 @@ void MainWindow::guiConnected( bool connected)
 
 void MainWindow::UpdateDouble(int no, double value)
 {
-    qDebug() << "UpdateDouble:" << no << " double " << value;
+   // qDebug() << "UpdateDouble:" << no << " double " << value;
     QLabel *label = nullptr;
     QLCDNumber *lcd = nullptr;
     QString name= "";
@@ -164,7 +164,7 @@ void MainWindow::UpdateDouble(int no, double value)
 
     case 13: label = ui->l_rcap; name="rcap"; break;
     case 14: label = ui->l_cycle; name="cycle"; break;
-    case 15: label = ui->l_soh; name="soh"; break;
+    case 15: label = ui->l_soh; name="soh "; break;
     case 16: label = ui->l_pvolt; name="pvolt"; break;
 
     default:
@@ -188,6 +188,7 @@ void MainWindow::UpdateDouble(int no, double value)
 
 
     if (lcd != nullptr) {
+
         lcd->display(value);
     }
 
@@ -195,6 +196,22 @@ void MainWindow::UpdateDouble(int no, double value)
 
 void MainWindow::UpdateCell(int no, int value)
 {
+    if (no == 42) {
+        qDebug() << "UpdateCell:" << "MQTT Status" << " -> " << value;
+        switch (value) {
+        case 0: ui->l_MqttStatus->setText("MQTT disconneced"); break;
+        case 1: ui->l_MqttStatus->setText("MQTT connecting"); break;
+        case 2: ui->l_MqttStatus->setText("MQTT connected"); break;
+        }
+        return;
+    }
+    if (no == 43) {
+        qDebug() << "UpdateCell:" << "Status" << " -> " << value;
+        char buffer[255];
+        sprintf(buffer, "Actual No: %d",value);
+        doStatusMsg(buffer);
+        return;
+    }
 //    qDebug() << "UpdateCell:" << no << " mV " << value;
     QLabel *label;
     switch(no) {

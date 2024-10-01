@@ -27,7 +27,7 @@ public slots:
     void  processRx(void);
     void doTimer();
     void updateLogStateChange();
-
+    void pollTelemetrie(int adr);
 signals:
 
 
@@ -40,6 +40,7 @@ private:
     QByteArray             m_RxData;
     QTimer                 m_Timer;
     int                    m_TimerState;
+    int                    m_ActAdr;
     QMqttClient            m_MqttClient;  // https://doc.qt.io/qt-6/qtmqtt-simpleclient-example.html
 
 };
