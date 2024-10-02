@@ -21,7 +21,7 @@ setting::setting()
     m_MqttHost     = "192.168.6.128";
     m_MqttPort     = 1883;
     m_MqttUser     = "mps";
-    m_MqttPassword = "gehheim#mpS";
+    m_MqttPassword = "void";      // TODO will be overwritten from /etc/seplos/seplos_qt.ini
     m_Rs485Dev     = "COM12";
 }
 
