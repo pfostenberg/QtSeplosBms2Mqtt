@@ -1,5 +1,10 @@
 #include "setting.h"
 
+#include <QApplication>
+#include <QSettings>
+#include <QDebug>
+#include <QDir>
+
 setting*  settingProvider()
 {
     static setting * g_Setting = NULL;
@@ -13,21 +18,40 @@ setting*  settingProvider()
 
 setting::setting()
 {
-    m_StartNo      = 1;
-    m_EndNo        = 2;
-    m_AutoStartDelayMs = 2000;  // 2 sec
-    m_WaitTimeMs = 10000;       // 30 sec.
-    m_MqttPrefix   = "BMS";
-    m_MqttHost     = "192.168.6.128";
-    m_MqttPort     = 1883;
-    m_MqttUser     = "mps";
-    m_MqttPassword = "void";      // TODO will be overwritten from /etc/seplos/seplos_qt.ini
-    m_Rs485Dev     = "COM12";
+    QString fn = "QtSeplosMqtt.ini";
+    QString fqfn = "/etc/seplos/" + fn;
+#ifdef WIN32
+    fqfn = QDir::homePath() + QDir::separator() + "qt" + QDir::separator() + fn;
+#endif
+    qDebug() <<  "setting reading from fqfn: " << fqfn;
+
+    QSettings qs(fqfn, QSettings::IniFormat);
+
+    m_StartNo          = qs.value("StartNo","1").toInt();
+    m_EndNo            = qs.value("EndNo","1").toInt();
+    m_AutoStartDelayMs = qs.value("AutoStartDelayMs","0").toInt();
+    m_WaitTimeMs       = qs.value("WaitTimeMs","10000").toInt();
+    m_MqttPrefix       = qs.value("MqttPrefix","BMS").toString();
+    m_MqttHost         = qs.value("MqttHost","BMS").toString(); // "192.168.6.128";
+    m_MqttPort         = qs.value("MqttPort","1883").toInt();
+    m_MqttUser         = qs.value("MqttUser","user1").toString();
+    m_MqttPassword     = qs.value("MqttPassword","BMS").toString();"void";      // TODO will be overwritten from /etc/seplos/seplos_qt.ini
+    m_Rs485Dev         = qs.value("Rs485Dev","COM12").toString();"COM12";
+
+    qDebug() <<  "setting m_StartNo: " << m_StartNo;
+    qDebug() <<  "setting m_EndNo: " << m_EndNo;
+    qDebug() <<  "setting m_AutoStartDelayMs: " << m_AutoStartDelayMs;
+    qDebug() <<  "setting m_Rs485Dev: " << m_Rs485Dev;
 }
 
-QString setting::getPort()
+QString setting::getRs485Dev()
 {
     return m_Rs485Dev;
+}
+
+void setting::setRs485Dev(QString value)
+{
+    m_Rs485Dev = value;
 }
 
 QString setting::getMqttPrefix()
@@ -40,9 +64,31 @@ QString setting::getMqttHost()
     return m_MqttHost;
 }
 
+void setting::setMqttHost(QString value)
+{
+    qDebug() << "setting::setMqttHost" << value;
+    m_MqttHost = value;
+}
+
+
+QString setting::getmMqttUser()
+{
+    return m_MqttUser;
+}
+
+QString setting::getMqttPassword()
+{
+    return m_MqttPassword;
+}
+
 uint32_t setting::getMqttPort()
 {
     return m_MqttPort;
+}
+
+void setting::setMqttPort(uint32_t value)
+{
+    m_MqttPort = value;
 }
 
 
@@ -65,4 +111,25 @@ uint32_t setting::getAutoStartDelayMs()
 uint32_t setting::getWaitTimeMs()
 {
     return m_WaitTimeMs;
+}
+
+
+void setting::setStartNo(uint32_t value)
+{
+    m_StartNo = value;
+}
+
+void setting::setEndNo(uint32_t value)
+{
+    m_EndNo = value;
+}
+
+void setting::setAutoStartDelayMs(uint32_t value)
+{
+    m_AutoStartDelayMs  = value;
+}
+
+void setting::setWaitTimeMs(uint32_t value)
+{
+    m_WaitTimeMs = value;
 }

@@ -38,29 +38,29 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&m_Seplos, SIGNAL (UpdateDouble(int, double)),this, SLOT (UpdateDouble(int, double)));
 
 
-    setting* sp = settingProvider();
-    ui->le_MqttHost->setText(sp->getMqttHost());
-    ui->le_MqttPort->setText(QString::number(sp->getMqttPort()));
-    ui->le_Start->setText(QString::number(sp->getStartNo()));
-    ui->le_End->setText(QString::number(sp->getEndNo()));
-    ui->le_DelayMs->setText(QString::number(sp->getAutoStartDelayMs()));
-    ui->le_Autostart->setText(QString::number(sp->getWaitTimeMs()));
+    m_settings = settingProvider();
+    ui->le_MqttHost->setText(m_settings->getMqttHost());
+    ui->le_MqttPort->setText(QString::number(m_settings->getMqttPort()));
+    ui->le_Start->setText(QString::number(m_settings->getStartNo()));
+    ui->le_End->setText(QString::number(m_settings->getEndNo()));
+    ui->le_DelayMs->setText(QString::number(m_settings->getAutoStartDelayMs()));
+    ui->le_Autostart->setText(QString::number(m_settings->getWaitTimeMs()));
+
+    // when user changes in gui -> write to class no password and username!
+    // also ini is not save... change only for test purpose
+    connect(ui->le_MqttHost , SIGNAL(textChanged(const QString &)), this, SLOT(csMqttHost(const QString &)));
+    connect(ui->le_MqttPort , SIGNAL(textChanged(const QString &)), this, SLOT(csMqttPort(const QString &)));
+    connect(ui->le_Start    , SIGNAL(textChanged(const QString &)), this, SLOT(csStart(const QString &)));
+    connect(ui->le_End      , SIGNAL(textChanged(const QString &)), this, SLOT(csEnd(const QString &)));
+    connect(ui->le_DelayMs  , SIGNAL(textChanged(const QString &)), this, SLOT(csDelay(const QString &)));
+    connect(ui->le_Autostart, SIGNAL(textChanged(const QString &)), this, SLOT(csAuto(const QString &)));
 
     guiConnected(false);
-
-    m_Timer = new QTimer(this);
-    connect(m_Timer, SIGNAL (timeout()), this, SLOT(doTimer()) );
-
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-}
-
-void MainWindow::RsSend(QByteArray data)
-{
-
 }
 
 void MainWindow::doStatusMsg(const char *msg)
@@ -69,44 +69,19 @@ void MainWindow::doStatusMsg(const char *msg)
     ui->l_StatusLine->setText(msg);
 }
 
-
-
 void MainWindow::doDisconnect()
 {
-    m_Timer->stop();
     m_Seplos.close();
-
     doStatusMsg("Disconnected");
-}
-
-void MainWindow::doTx(QByteArray data)
-{
-    m_Seplos.doTx(data);
-}
-
-void MainWindow::doTimer()
-{
-    /*
-    if (m_StateCount < 2000)
-    {
-        m_StateCount++;
-    } else {
-        qDebug() << "State Overshoot";
-    }
-*/
 }
 
 void MainWindow::doConnect(void)
 {
-
-    m_RndAn = 600; // 60 sec an.
-    m_RndAus = 300; // 30 stop
-
     int pos = ui->cbPorts->currentIndex();
     QSerialPortInfo spi = m_Ports.at(pos);
     QString pn = spi.portName();
 
-    bool open = m_Seplos.doConnect(spi);
+    bool open = m_Seplos.doConnect(spi,m_settings);
 
     if (open) {
         doStatusMsg("Connected!");
@@ -137,6 +112,36 @@ void MainWindow::writeTextFile(QString fn,QString data)
 void MainWindow::guiConnected( bool connected)
 {
     ui->pb_Disconnect->setDisabled(!connected);
+}
+
+void MainWindow::csMqttHost(const QString &value)
+{
+    m_settings->setMqttHost(value);
+}
+
+void MainWindow::csMqttPort(const QString &value)
+{
+    m_settings->setMqttPort(value.toInt());
+}
+
+void MainWindow::csStart(const QString &value)
+{
+    m_settings->setStartNo(value.toInt());
+}
+
+void MainWindow::csEnd(const QString &value)
+{
+    m_settings->setEndNo(value.toInt());
+}
+
+void MainWindow::csDelay(const QString &value)
+{
+    m_settings->setWaitTimeMs(value.toInt());
+}
+
+void MainWindow::csAuto(const QString &value)
+{
+    m_settings->setAutoStartDelayMs(value.toInt());
 }
 
 void MainWindow::UpdateDouble(int no, double value)

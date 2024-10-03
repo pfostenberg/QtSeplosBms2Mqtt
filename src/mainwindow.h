@@ -23,10 +23,7 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-
-    void RsSend(QByteArray data);
     void doStatusMsg(const char *msg);
-    void doTx(QByteArray tx);
     void guiConnected( bool connected);
     void writeTextFile(QString fn,QString data);
 
@@ -34,25 +31,27 @@ public:
 public slots:
     void doConnect();
     void doDisconnect();
-    void doTimer();
     void UpdateCell(int no, int value);
     void UpdateDouble(int no, double value);
 
+    void csMqttHost(const QString &value);
+    void csMqttPort(const QString &value);
+    void csStart(const QString &value);
+    void csEnd(const QString &value);
+    void csDelay(const QString &value);
+    void csAuto(const QString &value);
 private:
     Ui::MainWindow *ui;
-
+    setting* m_settings;
     Seplos                m_Seplos;
     QList<QSerialPortInfo> m_Ports;
 
-    QTimer *m_Timer;
     int     m_StateCount;
     int     m_TestCount;
     QString m_CsvData;
     int     m_CsvTimeout;
 
     int counter;
-    int m_RndAn;
-    int m_RndAus;
     int m_MaxCnt;
 };
 #endif // MAINWINDOW_H

@@ -9,9 +9,19 @@ class setting
   //  Q_OBJECT
 public:
     setting();
-    QString getPort();
+    QString getRs485Dev();
     QString getMqttPrefix();
     QString getMqttHost();
+    QString getmMqttUser();
+    QString getMqttPassword();
+    void setMqttHost(QString value);
+    //void setMqttPassword(QString value); not for secuity reasons
+    void setMqttPort(uint32_t value);
+    void setRs485Dev(QString value);
+    void setStartNo(uint32_t value);
+    void setEndNo(uint32_t value);
+    void setAutoStartDelayMs(uint32_t value);
+    void setWaitTimeMs(uint32_t value);
     uint32_t getStartNo();
     uint32_t getEndNo();
     uint32_t getAutoStartDelayMs();

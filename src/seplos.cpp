@@ -106,21 +106,16 @@ bool Seplos::sendMqttPublish(int adr, int no, int subno, double value, int dezim
     return x2;
 }
 
-bool Seplos::doConnect(QSerialPortInfo spi)
+bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
 {
-
-  //  m_MqttClient->setHostname(ui->lineEditHost->text());
-    m_MqttClient.setHostname("192.168.6.128");
-    m_MqttClient.setPort(1883);
-
-    m_MqttClient.setUsername("mps");
-    m_MqttClient.setPassword("gehheim#mpS");
-
+    m_MqttClient.setHostname(si->getMqttHost());
+    m_MqttClient.setPort(si->getMqttPort());
+    m_MqttClient.setUsername(si->getmMqttUser());
+    m_MqttClient.setPassword(si->getMqttPassword());
     m_MqttClient.connectToHost();
 
-
-    m_ActAdr = settingProvider()->getStartNo();
-    m_TimerState = settingProvider()->getEndNo()-10;  // send when connected
+    m_ActAdr = si->getStartNo();
+    m_TimerState = si->getEndNo()-10;  // send when connected
     connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Seplos::updateLogStateChange);
   //  connect(m_MqttClient, &QMqttClient::disconnected, this, &Seplos::brokerDisconnected);
 

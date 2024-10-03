@@ -7,13 +7,14 @@
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QMqttClient>
+#include "setting.h"
 
 class Seplos : public QObject
 {
     Q_OBJECT
 public:
     explicit Seplos(QObject *parent = nullptr);
-    bool doConnect(QSerialPortInfo spi);
+    bool doConnect(QSerialPortInfo spi, setting *si);
     void close();
     void doTx(QByteArray data);
     void modbusBuildCrcAndCrThenSend(QString data);
