@@ -343,11 +343,11 @@ min len 16
                             // calulate CRC
                             int offsetBA = 1;
                             QByteArray crcCalcBa = m_RxData.mid(startPos+offsetBA,crcLen-offsetBA);
-                            qDebug() << ts() << Qt::hex << "crcCalcBa: " << crcCalcBa.toHex();
+                            qDebug() << ts() << "crcCalcBa(dez): " << crcCalcBa.toHex();
                             char * data = crcCalcBa.data();
                             int balen = crcCalcBa.size();
                             uint16_t crcCalc = Seplos_CRC(data,balen);
-                            qDebug() << ts() << "crcCalc: " << Qt::hex << crcCalc;
+                            qDebug() << ts() << "crcCalc: " << crcCalc;
 /*
                             const char * test = "1203400456ABCEFE";
                             int tlen = strlen(test);
@@ -397,10 +397,10 @@ void Seplos::processProV20(QString line)
     int func = getUintFromString(line,start,2);
     int code = getUintFromString(line,start,2);
     int banz = getUintFromString(line,start,2);
-    int xxx1 = getUintFromString(line,start,2);
-    int xxx2 = getUintFromString(line,start,2);
-    int xxx3 = getUintFromString(line,start,2);
-    int xxx4 = getUintFromString(line,start,2);
+    getUintFromString(line,start,2);
+    getUintFromString(line,start,2);
+    getUintFromString(line,start,2);
+    getUintFromString(line,start,2);
 
     if (banz != 16)
     {
@@ -626,7 +626,7 @@ void Seplos::pollTelemetrie(int adr)
 
     int tlen = strlen(buffer);
     uint16_t tcrc = Seplos_CRC(buffer, tlen);
-    qDebug() << ts() << Qt::hex << "tcrc: " << tcrc;
+    qDebug() << ts() << "tcrc(dez): " << tcrc;
 
     sprintf(xbuffx,"~%s%04X\r",buffer,tcrc);
     doTx(xbuffx);  // read telemetrie
