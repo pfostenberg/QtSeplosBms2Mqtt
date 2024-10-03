@@ -11,6 +11,8 @@ Seplos::Seplos(QObject *parent) : QObject(parent)
    connect(&m_Timer,          SIGNAL(timeout()),   this, SLOT(doTimer()) );
    m_TimerState = 0;
    m_ActAdr = 0;
+
+
 }
 
 void Seplos::updateLogStateChange()

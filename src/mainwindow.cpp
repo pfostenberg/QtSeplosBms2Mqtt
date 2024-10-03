@@ -56,6 +56,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->le_Autostart, SIGNAL(textChanged(const QString &)), this, SLOT(csAuto(const QString &)));
 
     guiConnected(false);
+
+    uint32_t delay = settingProvider()->getAutoStartDelayMs();
+
+    if (delay >0)
+    {
+        QString msg = QString("Autostart in %1 sec").arg(delay/1000);
+        ui->l_StatusLine->setText(msg);
+        QTimer::singleShot(3000, this, [this]{doConnect();});
+    }
 }
 
 MainWindow::~MainWindow()
