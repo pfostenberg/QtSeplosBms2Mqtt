@@ -40,8 +40,8 @@ private:
     QSerialPort            m_Rs232;
     QByteArray             m_RxData;
     QTimer                 m_Timer;
-    int                    m_TimerState;
-    int                    m_ActAdr;
+    uint32_t                    m_TimerState;
+    uint32_t                    m_ActAdr;
     QMqttClient            m_MqttClient;  // https://doc.qt.io/qt-6/qtmqtt-simpleclient-example.html
 
 };
