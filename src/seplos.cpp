@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QDateTime>
 #include "setting.h"
+#include <QMqttLastWillProperties>
 
 
 Seplos::Seplos(QObject *parent) : QObject(parent)
@@ -11,8 +12,6 @@ Seplos::Seplos(QObject *parent) : QObject(parent)
    connect(&m_Timer,          SIGNAL(timeout()),   this, SLOT(doTimer()) );
    m_TimerState = 0;
    m_ActAdr = 0;
-
-
 }
 
 void Seplos::updateLogStateChange()
@@ -23,12 +22,10 @@ void Seplos::updateLogStateChange()
                             + QString::number(mqttState)
                             + QLatin1Char('\n');
     qDebug() << ts() << "updateLogStateChange" << content;
-
     emit UpdateCell(42, mqttState);
-
-
-
-    //ui->editLog->insertPlainText(content);
+    if (mqttState == 2) {
+        setLastWill();
+    }
 }
 
 static const char* const MqttNames[] = {
@@ -48,7 +45,7 @@ static const char* const MqttNames[] = {
     "amp_hours1",        // 13
     "cycles",            // 14
     "soh",               // 15
-    "port_voltage",            // 16
+    "port_voltage",      // 16
     "power",             // 17
     "diff_mv",           // 18
     "low_mv",
@@ -108,6 +105,26 @@ bool Seplos::sendMqttPublish(int adr, int no, int subno, double value, int dezim
     return x2;
 }
 
+void Seplos::setLastWill()
+{
+    qDebug() << ts() << "Seplos::setLastWill";
+    QString prefix = settingProvider()->getMqttPrefix();
+    int sno = settingProvider()->getStartNo();
+
+    // _ let it be the first -:)
+    QString statusTopic = QString("%1%2/_connected").arg(prefix).arg(sno);
+
+    QByteArray bAmessageDis("0");
+    m_MqttClient.setWillTopic(statusTopic);
+    m_MqttClient.setWillMessage(bAmessageDis);
+    m_MqttClient.setWillRetain(true);
+    m_MqttClient.setWillQoS(2);
+
+    QByteArray bAmessageCon("1");
+    m_MqttClient.publish(statusTopic,bAmessageCon);      // now we are connected.
+    qDebug() << ts() << "QMqttClient::publish" << statusTopic << " -> " << bAmessageCon;
+}
+
 bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
 {
     m_MqttClient.setHostname(si->getMqttHost());
@@ -115,6 +132,8 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
     m_MqttClient.setUsername(si->getmMqttUser());
     m_MqttClient.setPassword(si->getMqttPassword());
     m_MqttClient.connectToHost();
+
+
 
     m_ActAdr = si->getStartNo();
     m_TimerState = si->getEndNo()-10;  // send when connected
@@ -162,8 +181,6 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
 
 void Seplos::close()
 {
-    //oneLineRx("t73780000320200300027\r");
-    //return false;
     m_Timer.stop();
     m_Rs232.close();
 }
@@ -176,10 +193,8 @@ void Seplos::doTx(QByteArray data)
     m_Rs232.write(data);
 }
 
-
 void Seplos::rsReadFunction()
 {
-
     QByteArray arrivedMsg = m_Rs232.readAll();
     qDebug() << "RX(junk): " << arrivedMsg.toHex() + " ASC: "+ arrivedMsg;
     m_RxData.append(arrivedMsg);               // add Data...we may have already some
@@ -202,7 +217,7 @@ uint16_t Seplos_CRC(const char *buf, int len)
         uint16_t one = buf[pos];
         crc += one;          // XOR byte into least sig. byte of crc
     }
-   crc = crc ^0xffff;
+    crc = crc ^0xffff;
     crc = crc +1;
     // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
     return crc;
@@ -228,7 +243,6 @@ uint16_t ModRTU_CRC(char *buf, int len)
     // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
     return crc;
 }
-
 
 void Seplos::processRx(void)
 {
@@ -380,7 +394,6 @@ min len 16
 
     }
 }
-
 
 uint32_t getUintFromString(QString &str, int &start,int len ) {
     bool ok = true;

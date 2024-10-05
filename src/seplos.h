@@ -19,6 +19,7 @@ public:
     void doTx(QByteArray data);
     void modbusBuildCrcAndCrThenSend(QString data);
     QString ts(void);
+    void setLastWill();
 signals:
     void UpdateCell(int no, int value);
     void UpdateDouble(int no, double value);
@@ -40,8 +41,8 @@ private:
     QSerialPort            m_Rs232;
     QByteArray             m_RxData;
     QTimer                 m_Timer;
-    uint32_t                    m_TimerState;
-    uint32_t                    m_ActAdr;
+    uint32_t               m_TimerState;
+    uint32_t               m_ActAdr;
     QMqttClient            m_MqttClient;  // https://doc.qt.io/qt-6/qtmqtt-simpleclient-example.html
 
 };

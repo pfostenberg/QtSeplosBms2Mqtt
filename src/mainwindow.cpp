@@ -43,8 +43,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->le_MqttPort->setText(QString::number(m_settings->getMqttPort()));
     ui->le_Start->setText(QString::number(m_settings->getStartNo()));
     ui->le_End->setText(QString::number(m_settings->getEndNo()));
-    ui->le_DelayMs->setText(QString::number(m_settings->getAutoStartDelayMs()));
-    ui->le_Autostart->setText(QString::number(m_settings->getWaitTimeMs()));
+    ui->le_DelayMs->setText(QString::number(m_settings->getWaitTimeMs()));
+    ui->le_Autostart->setText(QString::number(m_settings->getAutoStartDelayMs()));
 
     // when user changes in gui -> write to class no password and username!
     // also ini is not save... change only for test purpose
