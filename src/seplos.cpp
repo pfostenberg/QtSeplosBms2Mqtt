@@ -56,7 +56,7 @@ static const char* const MqttNames[] = {
 };
 
 
-bool Seplos::sendMqttPublish(int adr, int no, int subno, double value, int dezimals)
+bool Seplos::sendMqttPublish(int adrX, int no, int subno, double value, int dezimals)
 {
     QString prefix = settingProvider()->getMqttPrefix();
     //mqtt.0.BMS1.cell16
@@ -81,14 +81,17 @@ bool Seplos::sendMqttPublish(int adr, int no, int subno, double value, int dezim
     if (no <= 22) {
         itemname = MqttNames[no];
     }
+
+    int mqttAdr = adrX + settingProvider()->getMqttOffset();
+
     char buffer[256];
     if (subno < 1) {
-        sprintf(buffer,"%s%d/%s",prefix.toLocal8Bit().constData(),adr,itemname);
+        sprintf(buffer,"%s%d/%s",prefix.toLocal8Bit().constData(),mqttAdr,itemname);
     } else {
         if (no==1) {
-            sprintf(buffer,"%s%d/%s%01d",prefix.toLocal8Bit().constData(),adr,itemname,subno);
+            sprintf(buffer,"%s%d/%s%01d",prefix.toLocal8Bit().constData(),mqttAdr,itemname,subno);
         } else {
-            sprintf(buffer,"%s%d/%s%02d",prefix.toLocal8Bit().constData(),adr,itemname,subno);
+            sprintf(buffer,"%s%d/%s%02d",prefix.toLocal8Bit().constData(),mqttAdr,itemname,subno);
         }
     }
     QString topic(buffer);
@@ -109,10 +112,11 @@ void Seplos::setLastWill()
 {
     qDebug() << ts() << "Seplos::setLastWill";
     QString prefix = settingProvider()->getMqttPrefix();
-    int sno = settingProvider()->getStartNo();
+    int snoX = settingProvider()->getStartNo();
+    int mqttAdr = snoX + settingProvider()->getMqttOffset();
 
     // _ let it be the first -:)
-    QString statusTopic = QString("%1%2/_connected").arg(prefix).arg(sno);
+    QString statusTopic = QString("%1%2/_connected").arg(prefix).arg(mqttAdr);
 
     QByteArray bAmessageDis("0");
     m_MqttClient.setWillTopic(statusTopic);
@@ -136,7 +140,7 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
 
 
     m_ActAdr = si->getStartNo();
-    m_TimerState = si->getEndNo()-10;  // send when connected
+    m_TimerState = si->getWaitTimeMs()-10;  // send when connected
     connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Seplos::updateLogStateChange);
   //  connect(m_MqttClient, &QMqttClient::disconnected, this, &Seplos::brokerDisconnected);
 

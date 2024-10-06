@@ -32,14 +32,14 @@ setting::setting()
     m_AutoStartDelayMs = qs.value("AutoStartDelayMs","0").toInt();
     m_WaitTimeMs       = qs.value("WaitTimeMs","10000").toInt();
     m_MqttPrefix       = qs.value("MqttPrefix","BMS").toString();
+    m_MqttOffset       = qs.value("MqttOffset","0").toInt();
     m_MqttHost         = qs.value("MqttHost","BMS").toString(); // "192.168.6.128";
     m_MqttPort         = qs.value("MqttPort","1883").toInt();
     m_MqttUser         = qs.value("MqttUser","user1").toString();
     m_MqttPassword     = qs.value("MqttPassword","BMS").toString();"void";      // TODO will be overwritten from /etc/seplos/seplos_qt.ini
     m_Rs485Dev         = qs.value("Rs485Dev","COM12").toString();"COM12";
 
-    qDebug() <<  "setting m_StartNo: " << m_StartNo;
-    qDebug() <<  "setting m_EndNo: " << m_EndNo;
+    qDebug() <<  "setting m_StartNo: " << m_StartNo << " m_EndNo: " << m_EndNo << " offset: " << m_MqttOffset;
     qDebug() <<  "setting m_AutoStartDelayMs: " << m_AutoStartDelayMs;
     qDebug() <<  "setting m_Rs485Dev: " << m_Rs485Dev;
 }
@@ -85,6 +85,13 @@ uint32_t setting::getMqttPort()
 {
     return m_MqttPort;
 }
+
+uint32_t setting::getMqttOffset()
+{
+    return m_MqttOffset;
+}
+
+
 
 void setting::setMqttPort(uint32_t value)
 {

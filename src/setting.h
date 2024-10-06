@@ -27,6 +27,7 @@ public:
     uint32_t getAutoStartDelayMs();
     uint32_t getWaitTimeMs();
     uint32_t getMqttPort();
+    uint32_t getMqttOffset();
 private:
     uint32_t m_StartNo;
     uint32_t m_EndNo;
@@ -35,6 +36,7 @@ private:
     QString  m_MqttPrefix;
     QString  m_MqttHost;
     uint32_t m_MqttPort;
+    uint32_t m_MqttOffset;
     QString  m_MqttUser;
     QString  m_MqttPassword;
     QString  m_Rs485Dev;
