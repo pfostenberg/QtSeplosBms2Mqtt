@@ -20,6 +20,7 @@ public:
     void modbusBuildCrcAndCrThenSend(QString data);
     QString ts(void);
     void setLastWill();
+    void setStatusOnline(bool online);
 signals:
     void UpdateCell(int no, int value);
     void UpdateDouble(int no, double value);

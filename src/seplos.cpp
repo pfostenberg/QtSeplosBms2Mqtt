@@ -108,8 +108,7 @@ bool Seplos::sendMqttPublish(int adrX, int no, int subno, double value, int dezi
     return x2;
 }
 
-void Seplos::setLastWill()
-{
+void Seplos::setStatusOnline(bool online) {
     qDebug() << ts() << "Seplos::setLastWill";
     QString prefix = settingProvider()->getMqttPrefix();
     int snoX = settingProvider()->getStartNo();
@@ -125,8 +124,16 @@ void Seplos::setLastWill()
     m_MqttClient.setWillQoS(2);
 
     QByteArray bAmessageCon("1");
+    if (!online) {
+        bAmessageCon="0";   // we are disconnected
+    }
     m_MqttClient.publish(statusTopic,bAmessageCon);      // now we are connected.
     qDebug() << ts() << "QMqttClient::publish" << statusTopic << " -> " << bAmessageCon;
+}
+
+void Seplos::setLastWill()
+{
+    setStatusOnline(true);
 }
 
 bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
@@ -137,10 +144,8 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
     m_MqttClient.setPassword(si->getMqttPassword());
     m_MqttClient.connectToHost();
 
+    m_ActAdr = si->getEndNo();   // on next timer we start from it
 
-
-    m_ActAdr = si->getStartNo();
-    m_TimerState = si->getWaitTimeMs()-10;  // send when connected
     connect(&m_MqttClient, &QMqttClient::stateChanged, this, &Seplos::updateLogStateChange);
   //  connect(m_MqttClient, &QMqttClient::disconnected, this, &Seplos::brokerDisconnected);
 
@@ -163,18 +168,15 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
     //    ui->editLog->insertPlainText(content);
     });
 
-
-
     m_Rs232.setBaudRate(QSerialPort::Baud19200);
     m_Rs232.setDataBits(QSerialPort::Data8);
     m_Rs232.setParity(QSerialPort::NoParity);
     m_Rs232.setPort(spi);
     bool isOpen = m_Rs232.open(QIODevice::ReadWrite);
 
-
     if (isOpen)
     {
-        m_TimerState = 0;
+        m_TimerState = si->getWaitTimeMs()-30;  // start after 3 sec...
         m_Timer.start(100);
         return true;
     } else {
@@ -185,8 +187,11 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
 
 void Seplos::close()
 {
+    qDebug() << ts() << "Seplos::close";
+    setStatusOnline(false);// disconnected
     m_Timer.stop();
     m_Rs232.close();
+//    m_MqttClient.disconnectFromHost();  // simulate disconnecting
 }
 
 void Seplos::doTx(QByteArray data)
@@ -584,9 +589,15 @@ void Seplos::oneLineRx(QString line)
 
     if (line.startsWith("~20"))
     {
-        processProV20(line);
-
-
+        int mqttState = m_MqttClient.state();
+        if (mqttState == 2) {
+            processProV20(line);
+        } else {
+            m_MqttClient.disconnectFromHost();
+            qDebug() << ts() << "reconnet to host";
+            m_MqttClient.connectToHost();
+            return;    // wait for next connect
+        }
     } else {
         qDebug() << ts() << "Start not with @20";
     }
