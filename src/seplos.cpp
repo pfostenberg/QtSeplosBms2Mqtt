@@ -504,7 +504,8 @@ void Seplos::processProV20(QString line)
     sendMqttPublish(addr, 9, 0, ahact, 0);
     emit UpdateDouble(9, ahact);
     //10      Custom number P=10    1
-    double cno1 =  getUintFromString(line,start,2);
+    //double cno1 =
+    getUintFromString(line,start,2);
     //11    Battery capacity (0.01Ah)    2
     double ahmax =  getUintFromString(line,start,4) * 0.01f;
     emit UpdateDouble(11, ahmax);
@@ -648,7 +649,7 @@ void Seplos::pollTelemetrie(int adr)
     // "~20014642E00201FD35\r"
     // set number and calculate CRC
     char buffer[255];
-    char xbuffx[255];
+    char xbuffx[275];
     sprintf(buffer,"20%02d4642E00201",adr);
 
 
