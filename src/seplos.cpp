@@ -653,7 +653,7 @@ void Seplos::pollTelemetrie(int adr)
 
 
     int tlen = strlen(buffer);
-    uint16_t tcrc = Seplos_CRC(buffer, tlen);
+    uint32_t tcrc = Seplos_CRC(buffer, tlen);
     qDebug() << ts() << "tcrc(dez): " << tcrc;
 
     sprintf(xbuffx,"~%s%04X\r",buffer,tcrc);
