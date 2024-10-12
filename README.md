@@ -1,5 +1,94 @@
 # QtSeplosBms2Mqtt
 
+------------------------ \/ \/ \/ GERMAN VERSION BELOW \/ \/ \/ ------------------------ 
+
+## Motivation
+This project was developed to monitor Seplos 280Ah DIY battery packs reliably and stably on a Raspberry Pi and to send the data via MQTT to a server. The program runs with Qt5 or Qt6 and uses an RS485-isolated USB transceiver for communication with the batteries.
+
+## Prerequisites
+
+Before starting the installation, ensure that your Raspberry Pi meets the following requirements:
+
+- **Raspberry Pi OS** (tested on Raspberry Pi OS Lite, should also work on desktop versions)
+- **Qt5 or Qt6**: Qt libraries for the graphical user interface
+- **RS485 isolated USB transceiver**: For connecting to the Seplos batteries
+- **MQTT Broker**: The program sends data via MQTT, so you need an MQTT broker (e.g., Mosquitto)
+
+### Dependencies
+Install the necessary packages and dependencies on your Raspberry Pi:
+
+```bash
+sudo apt-get update
+sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libqt5serialport5-dev libmosquitto-dev mosquitto-clients
+```
+
+### Compiling and Running the Program
+
+1. **Clone the repository to your Raspberry Pi:**
+
+```bash
+git clone https://github.com/your-git-repo-url/QtSeplosBms2Mqtt.git
+cd QtSeplosBms2Mqtt
+```
+
+2. **Build the program with qmake and make:**
+
+```bash
+qmake
+make
+```
+
+After successful compilation, the executable file will be created in the directory.
+
+### Configuration
+
+The program uses an INI-based configuration. You need to edit the config.ini file to configure your specific settings.
+
+1. **MQTT Settings: Enter your MQTT server details:**
+
+```bash
+[MQTT]
+Host=your-mqtt-server
+Port=1883
+Username=your-username
+Password=your-password
+```
+
+2. **RS485 Settings: Configure the RS485 port:**
+
+```bash
+[RS485]
+Port=/dev/ttyUSB0
+BaudRate=9600
+```
+
+Ensure that the specified port is correct and the transceiver is connected.
+
+### Running the Program
+
+To run the program, use the following command:
+
+```bash
+./QtSeplosBms2Mqtt
+```
+
+The program will start collecting data from the Seplos batteries and sending it via MQTT. You can display the user interface on your Pi using a VNC tool.
+
+### Troubleshooting
+
+* **MQTT connection fails:** Check the network connection and MQTT configuration.
+* **RS485 connection doesn't work:** Ensure the correct port is configured and the transceiver is properly connected.
+* **Missing dependencies:** Make sure all necessary packages are installed, particularly the Qt and MQTT libraries.
+
+### License
+
+This project is licensed under the MIT License. See the LICENSE file for more details.
+
+
+
+
+------------------------ GERMAN VERSION ------------------------ 
+
 ## Motivation
 Dieses Projekt wurde entwickelt, um Seplos 280Ah DIY Akkupacks stabil und zuverlässig auf einem Raspberry Pi zu überwachen und die Daten via MQTT an einen Server zu senden. Das Programm läuft mit Qt5 oder Qt6 und verwendet einen RS485-isolierten USB-Transceiver für die Kommunikation mit den Akkus. 
 
