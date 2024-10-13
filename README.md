@@ -47,11 +47,10 @@ The program uses an INI-based configuration. You need to edit the config.ini fil
 1. **MQTT Settings: Enter your MQTT server details:**
 
 ```bash
-[MQTT]
-Host=your-mqtt-server
-Port=1883
-Username=your-username
-Password=your-password
+MqttHost=dein-mqtt-server
+MqttPort=1883
+MqttUser=dein-username
+MqttPassword=dein-passwort
 ```
 
 2. **RS485 Settings: Configure the RS485 port:**
@@ -111,39 +110,63 @@ sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libqt5ser
 
 ### Kompilieren und Starten des Programms
 
-1. **Klone das Repository auf deinem Raspberry Pi:**
+
+1. **Qt mqtt lib muss installiert sein / werden.
+Wir müssen erst raus bekommen welches Qt5 genau installiert ist.
 
 ```bash
-git clone https://github.com/dein-git-repo-url/QtSeplosBms2Mqtt.git
+dpkg -l qt5-default
+```
+Bei mir 5.11.3
+
+install QtMqtt
+
+```bash
+git clone --branch v5.11.3 git://code.qt.io/qt/qtmqtt.git
+cd qtmqtt
+qmake qtmqtt.pro
+make install
+```
+
+see http://www.diy.ind.in/linux/31-install-mqtt-module-in-qt
+
+2. **Klone das Repository auf deinem Raspberry Pi:**
+
+```bash
+git clone https://github.com/pfostenberg/QtSeplosBms2Mqtt.git
 cd QtSeplosBms2Mqtt
 ```
-2. **Erstelle das Programm mit qmake und make:**
+
+3. **Erstelle das Programm mit qmake und make:**
 
 ```bash
-qmake
+qmake QtSeplosBms2Mqtt.pro
 make
 ```
 Nach der erfolgreichen Kompilierung wird die ausführbare Datei im Verzeichnis erstellt.
 Konfiguration
 
-Das Programm verwendet eine INI-basierte Konfiguration. Du musst die Datei config.ini bearbeiten, um deine spezifischen Einstellungen zu konfigurieren.
+4. **Kopiere Sample INI:**
 
-1. **MQTT-Einstellungen: Trage die MQTT-Serverdaten ein:**
+Das Programm verwendet eine INI-basierte Konfiguration. 
+Du musst die Datei config.ini bearbeiten, um deine spezifischen Einstellungen zu konfigurieren.
+Die INI muss bei PI unter /etc/seplos/QtSeplosMqtt.ini speichern.
+Ein Beispiel ist unter src\QtSeplosMqtt_sample.ini
+
+5. **MQTT-Einstellungen: Trage die MQTT-Serverdaten ein:**
 
 ```bash
-[MQTT]
-Host=dein-mqtt-server
-Port=1883
-Username=dein-username
-Password=dein-passwort
+MqttHost=dein-mqtt-server
+MqttPort=1883
+MqttUser=dein-username
+MqttPassword=dein-passwort
 ```
-2. **RS485-Einstellungen: Konfiguriere den RS485-Port:**
+6. **RS485-Einstellungen: Konfiguriere den RS485-Port:**
 
 ```bash
-
-    [RS485]
-    Port=/dev/ttyUSB0
-    BaudRate=9600
+Rs485Dev=/dev/ttyUSB0
+or under windows..
+Rs485Dev = COM12
 ```
 Stelle sicher, dass der angegebene Port korrekt ist und der Transceiver verbunden ist.
 
