@@ -3,7 +3,6 @@
 #include <QDebug>
 #include <QDateTime>
 #include "setting.h"
-#include <QMqttLastWillProperties>
 
 
 Seplos::Seplos(QObject *parent) : QObject(parent)
