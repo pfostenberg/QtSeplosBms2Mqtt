@@ -22,6 +22,7 @@ Install the necessary packages and dependencies on your Raspberry Pi:
 ```bash
 sudo apt-get update
 sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libqt5serialport5 libqt5serialport5-dev libmosquitto-dev mosquitto-clients qt5-default qtbase5-private-dev
+on some system you need to replace qt5-default to qt5-qmake-bin
 ```
 
 ### Compiling and Running the Program
@@ -30,6 +31,8 @@ sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libqt5ser
 We need to find out what version is installed exactly.
 ```bash
 dpkg -l qt5-default
+or
+dpkg -l | grep qt5-qmake-bin
 ```
 in my case 5.11.3
 
