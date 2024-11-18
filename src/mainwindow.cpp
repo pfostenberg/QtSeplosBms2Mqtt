@@ -7,6 +7,7 @@
 #include <QFileDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTimer>
 #include "setting.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -36,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->pb_Disconnect, SIGNAL (clicked()),this, SLOT (doDisconnect()));
     connect(&m_Seplos, SIGNAL (UpdateCell(int, int)),this, SLOT (UpdateCell(int, int)));
     connect(&m_Seplos, SIGNAL (UpdateDouble(int, double)),this, SLOT (UpdateDouble(int, double)));
-
+    connect(&m_Seplos, SIGNAL (RequestPortReopen()),this, SLOT (RequestPortReopen()));
 
     m_settings = settingProvider();
     ui->le_MqttHost->setText(m_settings->getMqttHost());
@@ -206,6 +207,13 @@ void MainWindow::UpdateDouble(int no, double value)
         lcd->display(value);
     }
 
+}
+
+void MainWindow::RequestPortReopen(void)
+{
+    qDebug() << "MainWindow::RequestPortReopen";
+    doDisconnect();
+    QTimer::singleShot(5000, this, SLOT(doConnect()));
 }
 
 void MainWindow::UpdateCell(int no, int value)

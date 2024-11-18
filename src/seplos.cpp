@@ -11,6 +11,7 @@ Seplos::Seplos(QObject *parent) : QObject(parent)
    connect(&m_Timer,          SIGNAL(timeout()),   this, SLOT(doTimer()) );
    m_TimerState = 0;
    m_ActAdr = 0;
+   m_OpenTx = 0;
 }
 
 void Seplos::updateLogStateChange()
@@ -167,6 +168,7 @@ bool Seplos::doConnect(QSerialPortInfo spi, setting *si)
     //    ui->editLog->insertPlainText(content);
     });
 
+    m_OpenTx = 0;
     m_Rs232.setBaudRate(QSerialPort::Baud19200);
     m_Rs232.setDataBits(QSerialPort::Data8);
     m_Rs232.setParity(QSerialPort::NoParity);
@@ -190,6 +192,7 @@ void Seplos::close()
     setStatusOnline(false);// disconnected
     m_Timer.stop();
     m_Rs232.close();
+    m_OpenTx = 0;
 //    m_MqttClient.disconnectFromHost();  // simulate disconnecting
 }
 
@@ -197,6 +200,19 @@ void Seplos::doTx(QByteArray data)
 {
     if (data.at(0)!='t') {
         qDebug() << ts() << "TX: " << data;
+        m_OpenTx++;
+
+        if (m_OpenTx > 2)
+        {
+            qDebug() << ts() << "doTx m_OpenTx: " << m_OpenTx;
+
+            if (m_OpenTx > 4) {
+                qDebug() << ts() << "doTx RequestPortReopen() ";
+                emit RequestPortReopen();
+                m_OpenTx = 0;
+            return;
+            }
+        }
     }
     m_Rs232.write(data);
 }
@@ -381,6 +397,7 @@ min len 16
                                 qDebug() << ts() << "CRC ERROR" << crcRx << "!= " << crcCalc;
                             } else {
                                 qDebug() << ts() << "CRC matched";
+                                m_OpenTx = 0; // was ok.
 
                                 int leftLen = absPosCR-startPos;
                                 QByteArray left = m_RxData.mid(startPos,leftLen);

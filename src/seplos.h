@@ -24,6 +24,7 @@ public:
 signals:
     void UpdateCell(int no, int value);
     void UpdateDouble(int no, double value);
+    void RequestPortReopen(void);
 
 public slots:
     void rsReadFunction();
@@ -45,6 +46,7 @@ private:
     uint32_t               m_TimerState;
     uint32_t               m_ActAdr;
     QMqttClient            m_MqttClient;  // https://doc.qt.io/qt-6/qtmqtt-simpleclient-example.html
+    uint32_t               m_OpenTx;
 
 };
 

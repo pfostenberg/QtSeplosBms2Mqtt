@@ -33,6 +33,7 @@ public slots:
     void doDisconnect();
     void UpdateCell(int no, int value);
     void UpdateDouble(int no, double value);
+    void RequestPortReopen(void);
 
     void csMqttHost(const QString &value);
     void csMqttPort(const QString &value);
