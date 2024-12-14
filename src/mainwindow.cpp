@@ -88,8 +88,25 @@ void MainWindow::doDisconnect()
 void MainWindow::doConnect(void)
 {
     int pos = ui->cbPorts->currentIndex();
+
+    QString devName = m_settings->getRs485Dev();
+    if (devName.isEmpty()) {
+        // use default
+    } else {
+        qDebug() << "doConnect devName: " << devName;
+        int xpos = ui->cbPorts->findText(devName);
+        qDebug() << "doConnect xpos: " << xpos;
+        if (xpos >= 0) {
+            pos = xpos;
+        }
+    }
+
+
     QSerialPortInfo spi = m_Ports.at(pos);
     QString pn = spi.portName();
+    qDebug() << "doConnect: " << pn;
+
+
 
     bool open = m_Seplos.doConnect(spi,m_settings);
 
