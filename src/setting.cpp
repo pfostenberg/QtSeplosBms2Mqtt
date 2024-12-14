@@ -42,6 +42,17 @@ setting::setting()
     qDebug() <<  "setting m_StartNo: " << m_StartNo << " m_EndNo: " << m_EndNo << " offset: " << m_MqttOffset;
     qDebug() <<  "setting m_AutoStartDelayMs: " << m_AutoStartDelayMs;
     qDebug() <<  "setting m_Rs485Dev: " << m_Rs485Dev;
+    
+    QFile sl(m_Rs485Dev);
+    if (sl.exists()) {
+		QString xx = sl.symLinkTarget();
+		//qDebug() <<  "setting m_Rs485Dev xx: " << xx;
+		xx = xx.replace("/dev/","");
+        qDebug() <<  "setting m_Rs485Dev smylink resolved: " << xx;
+        m_Rs485Dev = xx;
+    } else {
+		qDebug() <<  "setting m_Rs485Dev not found: " << m_Rs485Dev;
+	}
 }
 
 QString setting::getRs485Dev()
