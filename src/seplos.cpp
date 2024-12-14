@@ -440,10 +440,19 @@ void Seplos::processProV20(QString line)
     getUintFromString(line,start,2);
     getUintFromString(line,start,2);
 
+    // 16 -> Seplos 51V(16S)
+    // 48 -> Seplos 29V (8s)
     if (banz != 16)
     {
-        return;
+        if (banz != 48)
+        {
+            return;
+        }
     }
+    if (banz == 48) {
+        banz = 8;  // 48 -> 8 why?! but it works...
+    }
+
     qDebug() << ts() << "XX: " << addr << " " << func << " " << code << " " << banz;
 
     int minVolt = 10000;
