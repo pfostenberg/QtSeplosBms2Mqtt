@@ -12,6 +12,14 @@ Seplos::Seplos(QObject *parent) : QObject(parent)
    m_TimerState = 0;
    m_ActAdr = 0;
    m_OpenTx = 0;
+
+   m_V3_Protocol = true;
+   int version = settingProvider()->getVersion();
+   if (version == 3)
+   {
+       m_V3_Protocol = true;
+   }
+
 }
 
 void Seplos::updateLogStateChange()
@@ -198,9 +206,15 @@ void Seplos::close()
 
 void Seplos::doTx(QByteArray data)
 {
+    if (m_V3_Protocol) {
+        m_RxData.clear();
+    }
+
     if (data.at(0)!='t') {
-        qDebug() << ts() << "TX: " << data;
+
         m_OpenTx++;
+        qDebug() << ts() << "TX: " << data << " m_OpenTx" << m_OpenTx;
+
 
         if (m_OpenTx > 2)
         {
@@ -319,102 +333,128 @@ min len 16
         int rxLen = m_RxData.size();
 
         more = false;
-        qDebug() << ts() << "\t V2\tsof=" << indexSOF  << "\tEOF\t" << indexEOF <<  "\tlen\t" << rxLen ;
 
-        //  V2	sof= 23 	EOF	 42 	NL	 43
-        if ( (indexSOF >= 0) && ( rxLen >=16 ) && (indexEOF>=0) )
+
+        if (m_V3_Protocol)
         {
-
-            qDebug() << ts() << "SOF at " << indexSOF << " len= " << rxLen;
-            int startPos = indexSOF;
-            if (m_RxData.at(startPos+1) == '2')
+            qDebug() << ts() << "\t V3 \tlen\t" << rxLen ;
+            // min MODUBS RTU ADR + TYPE + LEN + x + CR
+            if (rxLen > 5)
             {
-                if (m_RxData.at(startPos+2) == '0')
+                int adr = m_RxData.at(0);
+                if (m_RxData.at(1)== 0x04)   // INPUT Register
                 {
-                    bool ok= false;
-
-                    uint16_t iAdr = m_RxData.mid(startPos+3,2).toUInt(&ok,16);
-                    qDebug() << ts() << "ADR: " << iAdr;
-                    if (m_RxData.at(startPos+5) == '4')
+                    int len = m_RxData.at(2);
+                    if ( (len == 0x24) || (len == 0x34) )
                     {
-                        if (m_RxData.at(startPos+6) == '6')
-                        {
-                            QByteArray fc = m_RxData.mid(startPos+7,2);
-                            uint16_t dFC = fc.toUInt(&ok,16);
-                            qDebug() << ts() << "FC_: " << fc << " dez: " << dFC;
+                        int minLen = 3 + len + 2; // 3 head + data + CRC
+                        if (rxLen >= minLen) {
+                        qDebug() << ts() << "\t V3 OK";
+                        QByteArray data = m_RxData.mid(3,len*2);
 
-                            uint32_t lenData = m_RxData.mid(startPos+9,4).toUInt(&ok,16);
-
-                            qDebug() << ts() << "LEN: " << lenData;
-
-                            // ~200146030000FDB0\r"
-                            // ~20014642E00201FD35$\r
-                            if (dFC != 0) {
-                                lenData = 0; // on TX len = 2 only 16 bit !!! je 2 char
-                            }
-
-                            // must calucalte from 46 based.(6) and allways 3 bytes ( 6 )
-
-                            int absPosCR = indexEOF;
-                            int absPosCRC = absPosCR-4;
-
-                            if (m_RxData.at(absPosCR-1) == '$')
-                            {
-                                absPosCRC--; // do we have a $ at the end... if yes CRC one down
-                            }
-
-                            int crcLen  = absPosCRC - startPos;
-                            qDebug() << ts() << "posCRC: " << absPosCRC << " CRpos: " << absPosCR << " CRCLEN: " << crcLen;
-
-                            // read CRC what it should be
-                            uint32_t crcRx = 0xBAD1;
-                            if ( rxLen >= absPosCR)
-                            {
-                                QByteArray crcBaRx = m_RxData.mid(absPosCRC,4);
-                                crcRx = crcBaRx.toUInt(&ok,16);
-                                qDebug() << ts() << "CRC: " << crcBaRx << " xx: " << crcRx << " XXXX: " << crcBaRx.toHex();
-
-                            } else {
-                                qDebug() << ts() << "CRC: too less data!!!!";
-                            }
-
-                            // calulate CRC
-                            int offsetBA = 1;
-                            QByteArray crcCalcBa = m_RxData.mid(startPos+offsetBA,crcLen-offsetBA);
-                            qDebug() << ts() << "crcCalcBa(dez): " << crcCalcBa.toHex();
-                            char * data = crcCalcBa.data();
-                            int balen = crcCalcBa.size();
-                            uint16_t crcCalc = Seplos_CRC(data,balen);
-                            qDebug() << ts() << "crcCalc: " << crcCalc;
-/*
-                            const char * test = "1203400456ABCEFE";
-                            int tlen = strlen(test);
-                            uint16_t tcrc = Seplos_CRC(test, tlen);
-                            qDebug() << ts() << Qt::hex << "tcrc: " << tcrc;
-*/
-
-                            if (crcRx != crcCalc ) {
-                                qDebug() << ts() << "CRC ERROR" << crcRx << "!= " << crcCalc;
-                            } else {
-                                qDebug() << ts() << "CRC matched";
-                                m_OpenTx = 0; // was ok.
-
-                                int leftLen = absPosCR-startPos;
-                                QByteArray left = m_RxData.mid(startPos,leftLen);
-                                oneLineRx(left);
-                                QByteArray rest = m_RxData.mid(absPosCR+1);
-                                m_RxData = rest;
-                                qDebug() << "m_RxData(RX): " << m_RxData.toHex();
-                                more = true;
-                            }
+                        processProV30(adr, data);
+                        } else {
+                            qDebug() << ts() << "\t V3 min length < len " << rxLen << " < " << minLen;
                         }
                     }
-
-
                 }
             }
+        } else {
+            qDebug() << ts() << "\t V2\tsof=" << indexSOF  << "\tEOF\t" << indexEOF <<  "\tlen\t" << rxLen ;
+            //  V2	sof= 23 	EOF	 42 	NL	 43
+            if ( (indexSOF >= 0) && ( rxLen >=16 ) && (indexEOF>=0) )
+            {
+
+                qDebug() << ts() << "SOF at " << indexSOF << " len= " << rxLen;
+                int startPos = indexSOF;
+                if (m_RxData.at(startPos+1) == '2')
+                {
+                    if (m_RxData.at(startPos+2) == '0')
+                    {
+                        bool ok= false;
+
+                        uint16_t iAdr = m_RxData.mid(startPos+3,2).toUInt(&ok,16);
+                        qDebug() << ts() << "ADR: " << iAdr;
+                        if (m_RxData.at(startPos+5) == '4')
+                        {
+                            if (m_RxData.at(startPos+6) == '6')
+                            {
+                                QByteArray fc = m_RxData.mid(startPos+7,2);
+                                uint16_t dFC = fc.toUInt(&ok,16);
+                                qDebug() << ts() << "FC_: " << fc << " dez: " << dFC;
+
+                                uint32_t lenData = m_RxData.mid(startPos+9,4).toUInt(&ok,16);
+
+                                qDebug() << ts() << "LEN: " << lenData;
+
+                                // ~200146030000FDB0\r"
+                                // ~20014642E00201FD35$\r
+                                if (dFC != 0) {
+                                    lenData = 0; // on TX len = 2 only 16 bit !!! je 2 char
+                                }
+
+                                // must calucalte from 46 based.(6) and allways 3 bytes ( 6 )
+
+                                int absPosCR = indexEOF;
+                                int absPosCRC = absPosCR-4;
+
+                                if (m_RxData.at(absPosCR-1) == '$')
+                                {
+                                    absPosCRC--; // do we have a $ at the end... if yes CRC one down
+                                }
+
+                                int crcLen  = absPosCRC - startPos;
+                                qDebug() << ts() << "posCRC: " << absPosCRC << " CRpos: " << absPosCR << " CRCLEN: " << crcLen;
+
+                                // read CRC what it should be
+                                uint32_t crcRx = 0xBAD1;
+                                if ( rxLen >= absPosCR)
+                                {
+                                    QByteArray crcBaRx = m_RxData.mid(absPosCRC,4);
+                                    crcRx = crcBaRx.toUInt(&ok,16);
+                                    qDebug() << ts() << "CRC: " << crcBaRx << " xx: " << crcRx << " XXXX: " << crcBaRx.toHex();
+
+                                } else {
+                                    qDebug() << ts() << "CRC: too less data!!!!";
+                                }
+
+                                // calulate CRC
+                                int offsetBA = 1;
+                                QByteArray crcCalcBa = m_RxData.mid(startPos+offsetBA,crcLen-offsetBA);
+                                qDebug() << ts() << "crcCalcBa(dez): " << crcCalcBa.toHex();
+                                char * data = crcCalcBa.data();
+                                int balen = crcCalcBa.size();
+                                uint16_t crcCalc = Seplos_CRC(data,balen);
+                                qDebug() << ts() << "crcCalc: " << crcCalc;
+    /*
+                                const char * test = "1203400456ABCEFE";
+                                int tlen = strlen(test);
+                                uint16_t tcrc = Seplos_CRC(test, tlen);
+                                qDebug() << ts() << Qt::hex << "tcrc: " << tcrc;
+    */
+
+                                if (crcRx != crcCalc ) {
+                                    qDebug() << ts() << "CRC ERROR" << crcRx << "!= " << crcCalc;
+                                } else {
+                                    qDebug() << ts() << "CRC matched";
+                                    m_OpenTx = 0; // was ok.
+
+                                    int leftLen = absPosCR-startPos;
+                                    QByteArray left = m_RxData.mid(startPos,leftLen);
+                                    oneLineRx(left);
+                                    QByteArray rest = m_RxData.mid(absPosCR+1);
+                                    m_RxData = rest;
+                                    qDebug() << "m_RxData(RX): " << m_RxData.toHex();
+                                    more = true;
+                                }
+                            }
+                        }
 
 
+                    }
+                }
+
+            }
         }
 
     }
@@ -426,6 +466,201 @@ uint32_t getUintFromString(QString &str, int &start,int len ) {
     start +=len;
     return data;
 }
+
+double Seplos::getUintFromBa(QByteArray &ba, int len, double mult, double offset ) {
+    int pos = len * 2;
+    uint32_t hb = ba.at(pos)&0xFF;
+    uint32_t lb = ba.at(pos+1)&0xFF;
+    uint32_t data = (hb << 8) + lb;
+    double  dData = data;
+    double  dRes = (dData * mult) + offset;
+
+    //char msg[255];
+    //sprintf(msg," %02X %02X %04X", hb, lb, data);
+
+    qDebug() << ts() << "getUintFromBa: " << len << " data-> " << dRes;
+    return dRes;
+}
+
+double Seplos::getIntFromBa(QByteArray &ba, int len, double mult ) {
+    int pos = len * 2;
+    uint32_t hb = ba.at(pos)&0xFF;
+    uint32_t lb = ba.at(pos+1)&0xFF;
+    int16_t data = (hb << 8) + lb;
+    double  dData = data;
+    double  dRes = dData * mult;
+
+    qDebug() << ts() << "getUintFromBa: " << len << " data-> " << dRes;
+    return dRes;
+}
+
+void Seplos::pollV3(int no, int baseAdr)
+{
+    m_V3_ActAdr = baseAdr;
+    QByteArray myHexArray = QByteArray::fromHex("0004100000127516");  // 0x1000
+
+    if ( m_V3_ActAdr == 0x1100) {
+      myHexArray = QByteArray::fromHex("00041100001A752C");   // 0x1100
+    }
+    m_OpenTx = 0;  // we got one.
+
+    doTx(myHexArray);  // read telemetrie
+}
+
+/**
+ * @brief Seplos::processProV30
+ * @param ba
+ * from https://github.com/syssi/esphome-seplos-bms/blob/main/esp32-seplos-v3-example.yaml
+ */
+void Seplos::processProV30(int addr, QByteArray ba)
+{
+    qDebug() << ts() << "processProV30: " << ba.size() << " : " << ba.toHex() << " adr: " << m_V3_ActAdr;
+    double od = -273.1;  // offsetDegrees
+
+    switch(m_V3_ActAdr) {
+    case 0x1000:
+    {
+        double tbatt = getUintFromBa(ba, 0, 0.01);     // 1000    Pack Voltage                R    UINT16    2    10mV
+        double tcurr = getIntFromBa (ba, 1, 0.01);     // 1001    Current                     R     INT16    2    10mA
+        double ahact = getUintFromBa(ba, 2, 0.01);     // 1002    Remaining capacity          R    UINT16    2    10mAH
+        double ahmax = getUintFromBa(ba, 3, 0.01);     // 1003    Total Capacity              R    UINT16    2    10mAH
+        double  rcap = getUintFromBa(ba, 4, 0.01);     // 1004    Total Discharge Capacity    R    UINT16    2    10AH
+        double   soc = getUintFromBa(ba, 5, 0.1);      // 1005    SOC                         R    UINT16    2    0.1%
+        double   soh = getUintFromBa(ba, 6, 0.1);      // 1006    SOH                         R    UINT16    2    0.1%
+        double  cycle = getUintFromBa(ba, 7, 1.0);      // 1007    Cycle                       R    UINT16    2    1
+
+        double    pvolt = tbatt; // !!!MZA???
+      //  getUintFromBa(ba, 8, 0.001);    // 1008    Averag of Cell Votage       R    UINT16    2    1mV
+      //  getUintFromBa(ba, 9, 0.1,od);   // 1009    Averag of Cell Temperature  R    UINT16    2    0.1K
+        double minVolt   = getUintFromBa(ba,10, 0.001);    // 100A    Max Cell Voltage            R    UINT16    2    1mV
+        double maxVolt   = getUintFromBa(ba,11, 0.001);    // 100B    Min Cell Voltage            R    UINT16    2    1mV
+        getUintFromBa(ba,12, 0.1,od);   // 100C    Max Cell Temperature        R    UINT16    2    0.1K
+        getUintFromBa(ba,13, 0.1,od);   // 100D    Min Cell Temperature        R    UINT16    2    0.1K
+        getUintFromBa(ba,14, 1.0);      // 100F    MaxDisCurt                  R    UINT16    2    1A
+
+        emit UpdateDouble(7, tcurr);
+        emit UpdateDouble(8, tbatt);
+        emit UpdateDouble(9, ahact);
+        emit UpdateDouble(11, ahmax);
+        emit UpdateDouble(12, soc);
+        emit UpdateDouble(13, rcap);
+        emit UpdateDouble(14, cycle);
+        emit UpdateDouble(15, soh);
+        emit UpdateDouble(16, pvolt);
+
+        sendMqttPublish(addr, 7, 0, tcurr, 3);
+        sendMqttPublish(addr, 8, 0, tbatt, 1);
+        sendMqttPublish(addr, 9, 0, ahact, 0);
+        sendMqttPublish(addr, 11, 0, ahmax, 0);
+        sendMqttPublish(addr, 12, 0, soc, 0);
+        sendMqttPublish(addr, 13, 0, rcap, 0);
+        sendMqttPublish(addr, 14, 0, cycle, 0);
+        sendMqttPublish(addr, 15, 0, soh, 0);
+        sendMqttPublish(addr, 16, 0, pvolt, 1);
+
+        //17 power W
+        double power = tbatt * tcurr;
+        sendMqttPublish(addr, 17, 0, power, 0);
+
+        //18 dx
+        int maxDx = maxVolt-minVolt;
+        sendMqttPublish(addr, 18, 0, maxDx, 0);
+
+        sendMqttPublish(addr, 19, 0, minVolt, 0);
+        sendMqttPublish(addr, 20, 0, maxVolt, 0);
+        int minNo = 0;
+        int maxNo = 0; // TODO !!!MZA???
+        sendMqttPublish(addr, 21, 0, minNo, 0);
+        sendMqttPublish(addr, 22, 0, maxNo, 0);
+
+        pollV3(0,0x1100);
+    }
+
+        break;
+
+    case 0x1100:
+        // # 1100    Cell1 Voltage               R    UINT16    2    1mV
+        // # 110F    Cell16 Voltage              R    UINT16    2    1mV
+        for (int i=0;i<16;i++) {
+            double volt = getUintFromBa(ba, i, 0.001);
+            double milliVolt = volt * 1000.0f;
+            emit UpdateCell(i, milliVolt);    // my display
+            sendMqttPublish(addr, 0, i +1, volt, 4);  // mqtt.
+        }
+
+        {
+            double ct1 = getUintFromBa(ba, 16, 0.1,od); // 1110    Cell temperature 1          R    UINT16    2    0.1K
+            double ct2 = getUintFromBa(ba, 17, 0.1,od); // 1111    Cell temperature 2          R    UINT16    2    0.1K
+            double ct3 = getUintFromBa(ba, 18, 0.1,od); // 1112    Cell temperature 3          R    UINT16    2    0.1K
+            double ct4 = getUintFromBa(ba, 19, 0.1,od); // 1113    Cell temperature 4          R    UINT16    2    0.1K
+            // 14 -> 20
+            // 15 -> 21
+            // 16 -> 22
+            // 17 -> 23
+            double ev1 = getUintFromBa(ba, 24, 0.1,od); // 1118    Environment Temperature     R    UINT16    2    0.1K
+            double pt1 = getUintFromBa(ba, 25, 0.1,od); // 1119    Power temperature           R    UINT16    2    0.1K
+
+            emit UpdateDouble(0, ct1);  // own display
+            emit UpdateDouble(1, ct2);
+            emit UpdateDouble(2, ct3);
+            emit UpdateDouble(3, ct4);
+            emit UpdateDouble(4, ev1);
+            emit UpdateDouble(5, pt1);
+
+            sendMqttPublish(addr, 1, 1, ct1, 1);  // MQTT
+            sendMqttPublish(addr, 1, 2, ct2, 1);
+            sendMqttPublish(addr, 1, 3, ct3, 1);
+            sendMqttPublish(addr, 1, 4, ct4, 1);
+            sendMqttPublish(addr, 2, 0, ev1, 1);
+            sendMqttPublish(addr, 3, 0, pt1, 1);
+        }
+
+        break;
+
+    case 0x1200:
+        break;
+
+        /*
+         * # Pack Info C
+  #
+  # 1200    Cells voltage 08-01low alarm state       R    HEX    1    1:alarm
+  # 1208    Cells voltage 16-09low alarm state       R    HEX    1    1:alarm
+  # 1210    Cells voltage 08-01high alarm state      R    HEX    1    1:alarm
+  # 1218    Cells voltage 16-09high alarm state      R    HEX    1    1:alarm
+  # 1220    Cell 08-01 temperature Tlow alarm state  R    HEX    1    1:alarm
+  # 1228    Cell 08-01 temperature high alarm state  R    HEX    1    1:alarm
+  # 1230    Cell 08-01 equalization event code       R    HEX    1    1:on 0:off
+  # 1238    Cell 16-09 equalization event code       R    HEX    1    1:on 0:off
+  # 1240    System state code                        R    HEX    1    See TB09
+  # 1248    Voltage event code                       R    HEX    1    See TB02
+  # 1250    Cells Temperature event code             R    HEX    1    See TB03
+  # 1258    Environment and power Temperature event code          R    HEX    1    See TB04
+  # 1260    Current event code1                      R    HEX    1    See TB05
+  # 1268    Current event code2                      R    HEX    1    See TB16
+  # 1270     The residual capacity code              R    HEX    1    See TB06
+
+  # System Parameter    reg. 1300...1367
+  # System Function     reg. 1400...1448
+  # System Control      reg. 1500...1519
+  # History Info        reg. 1600...1627
+  # Version Info        reg. 1700...1724
+  # PCS Control         reg. 1800...1823
+  # EMS Info A          reg. 2000...2019
+  # EMS Info B          reg. 2100...2115
+  # EMS Info C          reg. 2200...2248
+  #
+  # See docs/XZH BMS Modbus-RTU Protocol.pdf
+         */
+        break;
+    }
+
+
+
+m_OpenTx = 0;
+
+
+}
+
 
 void Seplos::processProV20(QString line)
 {
@@ -476,9 +711,9 @@ void Seplos::processProV20(QString line)
             minNo = bno +1;
             qDebug() << ts() << "minVolt: " << minVolt << minNo;
         }
-        emit UpdateCell(bno, milliVolt);
+        emit UpdateCell(bno, milliVolt);    // my display
         double dv = milliVolt * 0.001f;
-        sendMqttPublish(addr, 0, bno +1, dv, 4);
+        sendMqttPublish(addr, 0, bno +1, dv, 4);  // mqtt.
 
         //qDebug() << ts() << "Cell: " << bno << " mv: " << miliVolt;
     }
@@ -669,21 +904,27 @@ void Seplos::modbusBuildCrcAndCrThenSend(QString hex)
 void Seplos::pollTelemetrie(int adr)
 {
     qDebug() << ts() << "pollTelemetrie: " << adr;
-
-    emit UpdateCell(43,adr); // update status line
-    // "~20014642E00201FD35\r"
-    // set number and calculate CRC
-    char buffer[255];
-    char xbuffx[275];
-    sprintf(buffer,"20%02d4642E00201",adr);
+    if (m_V3_Protocol) {
+        pollV3(adr,0x1000);
 
 
-    int tlen = strlen(buffer);
-    uint32_t tcrc = Seplos_CRC(buffer, tlen);
-    qDebug() << ts() << "tcrc(dez): " << tcrc;
+    } else {
 
-    sprintf(xbuffx,"~%s%04X\r",buffer,tcrc);
-    doTx(xbuffx);  // read telemetrie
+        emit UpdateCell(43,adr); // update status line
+        // "~20014642E00201FD35\r"
+        // set number and calculate CRC
+        char buffer[255];
+        char xbuffx[275];
+        sprintf(buffer,"20%02d4642E00201",adr);
+
+
+        int tlen = strlen(buffer);
+        uint32_t tcrc = Seplos_CRC(buffer, tlen);
+        qDebug() << ts() << "tcrc(dez): " << tcrc;
+
+        sprintf(xbuffx,"~%s%04X\r",buffer,tcrc);
+        doTx(xbuffx);  // read telemetrie
+    }
 }
 
 

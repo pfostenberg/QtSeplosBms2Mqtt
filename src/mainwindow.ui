@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Qt Seplos BMS 2 mqtt V0.4</string>
+   <string>Qt Seplos BMS V2&amp;V3 mqtt V0.5</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QWidget" name="layoutWidget">
@@ -548,7 +548,7 @@
      <x>0</x>
      <y>0</y>
      <width>603</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>

@@ -38,6 +38,7 @@ setting::setting()
     m_MqttUser         = qs.value("MqttUser","user1").toString();
     m_MqttPassword     = qs.value("MqttPassword","void").toString();       // TODO will be overwritten from /etc/seplos/seplos_qt.ini
     m_Rs485Dev         = qs.value("Rs485Dev","COM12").toString();
+    m_Version          = qs.value("Version","2").toInt();
 
     qDebug() <<  "setting m_StartNo: " << m_StartNo << " m_EndNo: " << m_EndNo << " offset: " << m_MqttOffset;
     qDebug() <<  "setting m_AutoStartDelayMs: " << m_AutoStartDelayMs;
@@ -150,4 +151,8 @@ void setting::setAutoStartDelayMs(uint32_t value)
 void setting::setWaitTimeMs(uint32_t value)
 {
     m_WaitTimeMs = value;
+}
+
+uint32_t setting::getVersion() {
+    return m_Version;
 }

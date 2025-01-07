@@ -38,9 +38,16 @@ signals:
 private:
     void oneLineRx(QString);
     void processProV20(QString);
+    void processProV30(int adr ,QByteArray ba);
+    void pollV3(int no, int baseAdr);
     bool sendMqttPublish(int adr,int no, int subno, double value, int dezimals);
+    double getUintFromBa(QByteArray &ba, int len, double mult , double offset = 0.0);
+    double getIntFromBa(QByteArray &ba, int len, double mult );
 
     QSerialPort            m_Rs232;
+    bool                   m_V3_Protocol;
+    int                    m_V3_ActAdr;
+
     QByteArray             m_RxData;
     QTimer                 m_Timer;
     uint32_t               m_TimerState;
