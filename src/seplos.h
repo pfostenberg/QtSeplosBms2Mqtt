@@ -18,6 +18,7 @@ public:
     void close();
     void doTx(QByteArray data);
     void modbusBuildCrcAndCrThenSend(QString data);
+    QByteArray modbusBuildCrcAndAdd(QByteArray data);
     QString ts(void);
     void setLastWill();
     void setStatusOnline(bool online);
@@ -32,6 +33,7 @@ public slots:
     void doTimer();
     void updateLogStateChange();
     void pollTelemetrie(int adr);
+    QByteArray searchForModbusData(QByteArray ba);
 signals:
 
 
@@ -39,14 +41,17 @@ private:
     void oneLineRx(QString);
     void processProV20(QString);
     void processProV30(int adr ,QByteArray ba);
-    void pollV3(int no, int baseAdr);
+    void pollV3(int no, int baseAdr, int len);
     bool sendMqttPublish(int adr,int no, int subno, double value, int dezimals);
     double getUintFromBa(QByteArray &ba, int len, double mult , double offset = 0.0);
     double getIntFromBa(QByteArray &ba, int len, double mult );
+    uint16_t ModRTU_CRC(uint8_t* buf, int len);
 
     QSerialPort            m_Rs232;
     bool                   m_V3_Protocol;
-    int                    m_V3_ActAdr;
+    int                    m_V3_ImputRegAdr;
+    int                    m_V3_ImputRegLen;
+    int                    m_V3_BmsAdr;
 
     QByteArray             m_RxData;
     QTimer                 m_Timer;

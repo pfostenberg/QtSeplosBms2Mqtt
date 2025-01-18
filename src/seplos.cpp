@@ -207,7 +207,10 @@ void Seplos::close()
 void Seplos::doTx(QByteArray data)
 {
     if (m_V3_Protocol) {
+        qDebug() << ts() << "TX V3: " << data.toHex() << " m_OpenTx" << m_OpenTx;
         m_RxData.clear();
+        m_Rs232.write(data);
+        return;
     }
 
     if (data.at(0)!='t') {
@@ -234,9 +237,13 @@ void Seplos::doTx(QByteArray data)
 void Seplos::rsReadFunction()
 {
     QByteArray arrivedMsg = m_Rs232.readAll();
+#ifdef FULL_RX_LOG
     qDebug() << "RX(junk): " << arrivedMsg.toHex() + " ASC: "+ arrivedMsg;
+#endif
     m_RxData.append(arrivedMsg);               // add Data...we may have already some
+#ifdef FULL_RX_LOG
     qDebug() << "RX(all_): " << m_RxData.toHex()+ " ASC: "+ m_RxData;
+#endif
     processRx();
 }
 
@@ -280,6 +287,74 @@ uint16_t ModRTU_CRC(char *buf, int len)
     }
     // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
     return crc;
+}
+
+QByteArray Seplos::searchForModbusData(QByteArray ba)
+{
+    QByteArray ret;
+    int balen = ba.size();
+    int headerSize = 5;  // ADR TYPE LEN + 2x CRC
+    for (int i=0; i < balen-headerSize;i++)
+    {
+        int adr = m_RxData.at(i);
+        int type = m_RxData.at(i+1);
+        int pdulen = m_RxData.at(i+2);
+
+
+
+        if (adr == m_V3_BmsAdr)
+        {
+            if (type == 0x04)   // INPUT Register
+            {
+                // only search for input type with correct length.
+                //if ( (pdulen == 0x24) || (pdulen == 0x34) )
+                if ( pdulen == m_V3_ImputRegLen )
+                {
+                    //qDebug() << ts() << "searchForModbusData?: " << i << " adr: " << adr  << " data: " << m_RxData.toHex();
+                    int minLen = headerSize + pdulen;
+                    int restLen = balen - i;
+                    if (restLen >= minLen )
+                    {
+                        qDebug() << ts() << "searchForModbusData?: " << i << " adr: " << adr  <<  "balen: " << balen  << " restLen; " << restLen; //  << " data: " << m_RxData.toHex();
+
+                        int crclen = 3 + pdulen;
+                        //  only with 2 length.
+                        QByteArray pba = ba.mid(i,crclen);
+
+                        int rxCrcLb = ba.at(i+crclen) & 0x00ff;
+                        int  rxCrcHb = ba.at(i+crclen+1) & 0x00ff;
+
+                        uint8_t * data = (uint8_t *) pba.data();
+
+                        uint16_t crc = ModRTU_CRC(data,crclen);
+
+                        uint16_t lb = crc & 0x00ff;
+                        uint16_t hb = crc >> 8;
+                        char buffer[255];
+                        sprintf(buffer,"%04X %02X %02X RX: %02X %02X ",crc,lb,hb,rxCrcLb,rxCrcHb);
+                        qDebug()  << "CRC: " << buffer << " x  " << crclen;
+
+                        bool crcOK= false;
+
+                        if (lb == rxCrcLb)
+                        {
+                            if (hb == rxCrcHb)
+                            {
+                                crcOK= true;
+                            }
+                        }
+                        if (crcOK) {
+                            qDebug() << ts() << "searchForModbusData crcOK: " << i << " adr: " << adr  << " data: " << pba.toHex();
+                            return pba;
+                        } else {
+                            qDebug() << ts() << "searchForModbusData crcBAD: " << i << " adr: " << adr  << " data: " << pba.toHex();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return ret;
 }
 
 void Seplos::processRx(void)
@@ -337,27 +412,26 @@ min len 16
 
         if (m_V3_Protocol)
         {
-            qDebug() << ts() << "\t V3 \tlen\t" << rxLen ;
-            // min MODUBS RTU ADR + TYPE + LEN + x + CR
+            #ifdef FULL_RX_LOG
+            qDebug() << ts() << "\t V3 \tlen\t" << rxLen << m_RxData.toHex();
+            #endif
+            // min MODUBS RTU ADR + TYPE + LEN + x + CRCx2
             if (rxLen > 5)
             {
-                int adr = m_RxData.at(0);
-                if (m_RxData.at(1)== 0x04)   // INPUT Register
+                QByteArray modBusRx = searchForModbusData(m_RxData);
+                if (modBusRx.size() > 4)
                 {
-                    int len = m_RxData.at(2);
-                    if ( (len == 0x24) || (len == 0x34) )
-                    {
-                        int minLen = 3 + len + 2; // 3 head + data + CRC
-                        if (rxLen >= minLen) {
-                        qDebug() << ts() << "\t V3 OK";
-                        QByteArray data = m_RxData.mid(3,len*2);
+                    int adr = modBusRx.at(0);
+                    QByteArray data = modBusRx.mid(3);
 
-                        processProV30(adr, data);
-                        } else {
-                            qDebug() << ts() << "\t V3 min length < len " << rxLen << " < " << minLen;
-                        }
-                    }
+
+                    qDebug() << ts() << "clear input data non imput register.";
+                    m_RxData.clear();  // must clear if we do not understand.
+
+                    processProV30(adr, data);  // send the next must be after the clear!
+
                 }
+
             }
         } else {
             qDebug() << ts() << "\t V2\tsof=" << indexSOF  << "\tEOF\t" << indexEOF <<  "\tlen\t" << rxLen ;
@@ -494,17 +568,33 @@ double Seplos::getIntFromBa(QByteArray &ba, int len, double mult ) {
     return dRes;
 }
 
-void Seplos::pollV3(int no, int baseAdr)
+void Seplos::pollV3(int no, int baseAdr, int len)
 {
-    m_V3_ActAdr = baseAdr;
+    qDebug() << ts() << "pollV3 BMS#: " << no << " InputRegAdr: " << Qt::hex << baseAdr << " len: " << len;
+    char msg[64];
+    sprintf(msg,"%02X%02X%04X%04X",no,4,baseAdr,len);
+    QByteArray cmdBA = QByteArray::fromHex(msg);  // 0x1000
+    QByteArray sendBA = modbusBuildCrcAndAdd(cmdBA);
+
+    //qDebug() << ts() << "BA CRC TEST " << sendBA.toHex();
+
+    m_V3_ImputRegAdr = baseAdr;
+    m_V3_BmsAdr = no;
+    m_V3_ImputRegLen = len * 2;    //  (pdulen == 0x24) || (pdulen == 0x34)   0x12*2=0x24  0x1A*2= ( INPUT reg ist 2 byte wide.
+
+/*
     QByteArray myHexArray = QByteArray::fromHex("0004100000127516");  // 0x1000
 
-    if ( m_V3_ActAdr == 0x1100) {
-      myHexArray = QByteArray::fromHex("00041100001A752C");   // 0x1100
+    if ( m_V3_ImputRegAdr == 0x1100)
+    {
+        myHexArray = QByteArray::fromHex("00041100001A752C");   // 0x1100  einzelen zellen.
+
     }
     m_OpenTx = 0;  // we got one.
-
     doTx(myHexArray);  // read telemetrie
+*/
+    m_OpenTx = 0;  // we got one.
+    doTx(sendBA);  // read telemetrie
 }
 
 /**
@@ -514,10 +604,11 @@ void Seplos::pollV3(int no, int baseAdr)
  */
 void Seplos::processProV30(int addr, QByteArray ba)
 {
-    qDebug() << ts() << "processProV30: " << ba.size() << " : " << ba.toHex() << " adr: " << m_V3_ActAdr;
+    qDebug() << ts() << "processProV30: " << ba.size() << " : " << ba.toHex() << " adr: " << Qt::hex << m_V3_ImputRegAdr;
     double od = -273.1;  // offsetDegrees
 
-    switch(m_V3_ActAdr) {
+
+    switch(m_V3_ImputRegAdr) {
     case 0x1000:
     {
         double tbatt = getUintFromBa(ba, 0, 0.01);     // 1000    Pack Voltage                R    UINT16    2    10mV
@@ -573,7 +664,7 @@ void Seplos::processProV30(int addr, QByteArray ba)
         sendMqttPublish(addr, 21, 0, minNo, 0);
         sendMqttPublish(addr, 22, 0, maxNo, 0);
 
-        pollV3(0,0x1100);
+        pollV3(m_V3_BmsAdr,0x1100,0x1a);
     }
 
         break;
@@ -613,6 +704,9 @@ void Seplos::processProV30(int addr, QByteArray ba)
             sendMqttPublish(addr, 1, 4, ct4, 1);
             sendMqttPublish(addr, 2, 0, ev1, 1);
             sendMqttPublish(addr, 3, 0, pt1, 1);
+
+            m_V3_ImputRegLen = 123; // must override .... too manay responses if more than one system it also polls...
+            //pollV3(m_V3_BmsAdr,0x1100,0x1a);
         }
 
         break;
@@ -871,6 +965,24 @@ QString Seplos::ts(void)
     return QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss,zzz");
 }
 
+QByteArray Seplos::modbusBuildCrcAndAdd(QByteArray cmd1) {
+
+    uint8_t * data = (uint8_t *) cmd1.data();
+    int len = cmd1.size();
+    uint16_t crc = ModRTU_CRC(data,len);
+
+    uint16_t lb = crc & 0x00ff;
+    uint16_t hb = crc >> 8;
+    char buffer[255];
+    sprintf(buffer,"%04X %02X %02X",crc,lb,hb);
+    //qDebug()  << "yy: " << buffer << " x  " << len;
+
+    cmd1.append(lb);
+    cmd1.append(hb);
+    //    cmd1.append(0x0d);
+    return cmd1;
+}
+
 void Seplos::modbusBuildCrcAndCrThenSend(QString hex)
 {
     // sample
@@ -880,7 +992,7 @@ void Seplos::modbusBuildCrcAndCrThenSend(QString hex)
 
     QByteArray cmd1 = QByteArray::fromHex(hex.toUtf8());
 
-    char * data = cmd1.data();
+    uint8_t * data = (uint8_t *) cmd1.data();
     int len = cmd1.size();
     uint16_t crc = ModRTU_CRC(data,len);
 
@@ -905,7 +1017,7 @@ void Seplos::pollTelemetrie(int adr)
 {
     qDebug() << ts() << "pollTelemetrie: " << adr;
     if (m_V3_Protocol) {
-        pollV3(adr,0x1000);
+        pollV3(adr,0x1000,0x12);
 
 
     } else {
@@ -954,3 +1066,24 @@ void Seplos::doTimer()
     }
 }
 
+
+// Compute the MODBUS RTU CRC
+uint16_t Seplos::ModRTU_CRC(uint8_t* buf, int len)
+{
+    uint16_t crc = 0xFFFF;
+
+    for (int pos = 0; pos < len; pos++) {
+        crc ^= (uint16_t)buf[pos];          // XOR byte into least sig. byte of crc
+
+        for (int i = 8; i != 0; i--) {    // Loop over each bit
+            if ((crc & 0x0001) != 0) {      // If the LSB is set
+                crc >>= 1;                    // Shift right and XOR 0xA001
+                crc ^= 0xA001;
+            }
+            else                            // Else LSB is not set
+                crc >>= 1;                    // Just shift right
+        }
+    }
+    // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
+    return crc;
+}
