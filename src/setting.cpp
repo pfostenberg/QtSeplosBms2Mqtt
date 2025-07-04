@@ -154,5 +154,6 @@ void setting::setWaitTimeMs(uint32_t value)
 }
 
 uint32_t setting::getVersion() {
+	qDebug() << "setting::getVersion" << m_Version;
     return m_Version;
 }

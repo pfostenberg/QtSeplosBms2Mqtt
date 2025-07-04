@@ -13,7 +13,7 @@ Seplos::Seplos(QObject *parent) : QObject(parent)
    m_ActAdr = 0;
    m_OpenTx = 0;
 
-   m_V3_Protocol = true;
+   m_V3_Protocol = false;  // default V2
    int version = settingProvider()->getVersion();
    if (version == 3)
    {
@@ -570,7 +570,11 @@ double Seplos::getIntFromBa(QByteArray &ba, int len, double mult ) {
 
 void Seplos::pollV3(int no, int baseAdr, int len)
 {
+#ifdef Qt::hex	
     qDebug() << ts() << "pollV3 BMS#: " << no << " InputRegAdr: " << Qt::hex << baseAdr << " len: " << len;
+#else
+	qDebug() << ts() << "pollV3 BMS#: " << no << " InputRegAdr: " << hex << baseAdr << " len: " << len;
+#endif    
     char msg[64];
     sprintf(msg,"%02X%02X%04X%04X",no,4,baseAdr,len);
     QByteArray cmdBA = QByteArray::fromHex(msg);  // 0x1000
@@ -604,7 +608,11 @@ void Seplos::pollV3(int no, int baseAdr, int len)
  */
 void Seplos::processProV30(int addr, QByteArray ba)
 {
+#ifdef Qt::hex
     qDebug() << ts() << "processProV30: " << ba.size() << " : " << ba.toHex() << " adr: " << Qt::hex << m_V3_ImputRegAdr;
+#else
+    qDebug() << ts() << "processProV30: " << ba.size() << " : " << ba.toHex() << " adr: " << hex << m_V3_ImputRegAdr;
+#endif
     double od = -273.1;  // offsetDegrees
 
 
